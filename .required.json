@@ -1,0 +1,1 @@
+{"lab1":{"required":["compile_all.sh","my_commands.sh","count.c","echo_arg.c","echo_stdin.c","hello.c"],"required_only":true}}
