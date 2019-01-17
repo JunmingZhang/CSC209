@@ -5,7 +5,8 @@ int main() {
     int indicator;
     int return_value = 0;
     
-    while (scanf("%s %d", word, &indicator) != EOF) {
+    scanf("%s", word);
+    while (scanf("%d", &indicator) != EOF) {
         if (indicator == -1) {
             printf("%s\n", word);
         } else if (indicator >= 0 && indicator <= 9) {
