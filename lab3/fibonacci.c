@@ -16,6 +16,17 @@
 
 /* Write your solution here */
 
+void fib(int **seq, int count) {
+    *seq = malloc(sizeof(int) * count);
+    for (int i = 0; i < count; i++) {
+        if (i == 0 || i == 1) {
+            (*seq)[i] = i;
+        } else {
+            (*seq)[i] = (*seq)[i - 1] + (*seq)[i - 2];
+        }
+    }
+}
+
 
 int main(int argc, char **argv) {
     /* do not change this main function */
