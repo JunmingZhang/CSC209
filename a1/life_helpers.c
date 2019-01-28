@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 void print_state(char *state, int size) {
+    //print each character in one state
     for(int ind = 0; ind < size; ind++) {
         printf("%c", state[ind]);
     }

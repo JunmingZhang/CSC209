@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "life_helpers.c"
-
 
 void print_state(char *state, int size);
 void update_state(char *state, int size);
@@ -29,5 +27,7 @@ int main(int argc, char **argv) {
         update_state(state, size);
     }
     
+    //if there is no problem with the argument, and no other exceptions
+    //program returns 0
     return 0;
 }

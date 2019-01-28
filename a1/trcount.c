@@ -29,7 +29,34 @@ int main(int argc, char **argv) {
     }
 
     /* Complete the implementation */
-
+    
+    //define reference and address to store info after reading
+    //each line of the file
+    char reference;
+    unsigned long address;
+    
+    //count four kinds of references
+    int I_ref = 0;
+    int M_ref = 0;
+    int L_ref = 0;
+    int S_ref = 0;
+    
+    //count three areas of the memory
+    int global = 0;
+    int heap = 0;
+    int stack = 0;
+    
+    //read and count the info needed
+    while (fscanf(fp, "%c,%lx\n", &reference, &address) != EOF) {
+        if (reference == 'I') { I_ref++; }
+        if (reference == 'M') { M_ref++; }
+        if (reference == 'L') { L_ref++; }
+        if (reference == 'S') { S_ref++; }
+        
+        if (address >= GLOBALS_START && address <= GLOBALS_END && reference != 'I') { global++; }
+        if (address >= HEAP_START && address <= HEAP_END) { heap++; }
+        if (address >= STACK_START) { stack++; }
+    }
 
     /* Use these print statements to print the ouput. It is important that 
      * the output match precisely for testing purposes.
@@ -37,17 +64,19 @@ int main(int argc, char **argv) {
      * The print statements are commented out so that the program compiles.  
      * Uncomment them as you get each piece working.
      */
-    /*
-    printf("Reference Counts by Type:\n");
-    printf("    Instructions: %d\n", );
-    printf("    Modifications: %d\n", );
-    printf("    Loads: %d\n", );
-    printf("    Stores: %d\n", );
-    printf("Data Reference Counts by Location:\n");
-    printf("    Globals: %d\n", );
-    printf("    Heap: %d\n", );
-    printf("    Stack: %d\n", );
-    */
 
+    //print the output
+    printf("Reference Counts by Type:\n");
+    printf("    Instructions: %d\n", I_ref);
+    printf("    Modifications: %d\n", M_ref);
+    printf("    Loads: %d\n", L_ref);
+    printf("    Stores: %d\n", S_ref);
+    printf("Data Reference Counts by Location:\n");
+    printf("    Globals: %d\n", global);
+    printf("    Heap: %d\n", heap);
+    printf("    Stack: %d\n", stack);
+
+    //if there is no problem with the argument, and no other exceptions
+    //program returns 0
     return 0;
 }
