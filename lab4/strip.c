@@ -20,6 +20,20 @@
 */
 
 // Write the function strip_q_marks here
+int strip_q_marks(char str1[]) {
+    int q_exists = 0;
+    int last_q;
+    int num_q = 0;
+    for (int start = strlen(str1) - 1; str1[start] == '?' && start >= 0; start--){
+        if (q_exists == 0) { q_exists = 1; }
+        last_q = start;
+        num_q++;
+    }
+    if (q_exists == 1) {
+        str1[last_q] = '\0';
+    }
+    return num_q;
+}
 
 
 int main(int argc, char **argv) {
