@@ -75,6 +75,9 @@ int main(int argc, char **argv) {
     printf("    Globals: %d\n", global);
     printf("    Heap: %d\n", heap);
     printf("    Stack: %d\n", stack);
+    
+    //close the file
+    fclose(fp);
 
     //if there is no problem with the argument, and no other exceptions
     //program returns 0

@@ -56,6 +56,10 @@ int main(int argc, char **argv) {
             start = 1;
         }
     }
+    
+    //close the file
+    fclose(trace_fp);
+    fclose(marker_fp);
 
     //if there is no problem with the argument, and no other exceptions
     //program returns 0
