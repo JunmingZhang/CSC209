@@ -49,13 +49,16 @@ int main(int argc, char **argv) {
     //read and count the info needed
     while (fscanf(fp, "%c,%lx\n", &reference, &address) != EOF) {
         if (reference == 'I') { I_ref++; }
-        if (reference == 'M') { M_ref++; }
-        if (reference == 'L') { L_ref++; }
-        if (reference == 'S') { S_ref++; }
         
-        if (address >= GLOBALS_START && address <= GLOBALS_END && reference != 'I') { global++; }
-        if (address >= HEAP_START && address <= HEAP_END) { heap++; }
-        if (address >= STACK_START) { stack++; }
+        else if (reference != 'I') {
+            if (reference == 'M') { M_ref++; }
+            else if (reference == 'L') { L_ref++; }
+            else if (reference == 'S') { S_ref++; }
+            
+            if (address >= GLOBALS_START && address <= GLOBALS_END) { global++; }
+            else if (address >= HEAP_START && address <= HEAP_END) { heap++; }
+            else if (address >= STACK_START) { stack++; }
+        }
     }
 
     /* Use these print statements to print the ouput. It is important that 
