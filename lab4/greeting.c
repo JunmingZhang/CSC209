@@ -40,9 +40,8 @@ int main(int argc, char **argv) {
     // Your code goes here
     strncpy(greeting, argv[1], sizeof(greeting));
     greeting[19] = '\0';
-    int space = strlen(argv[1]);
-    if (strlen(greeting) < sizeof(greeting) - 1) { greeting[space] = ' '; }
-
+    
+    strncat(greeting, " ", sizeof(greeting) - strlen(greeting) - 1);
     strncat(greeting, name, sizeof(greeting) - strlen(greeting) - 1);
 
     printf("%s\n", greeting);
