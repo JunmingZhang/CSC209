@@ -55,9 +55,9 @@ int main(int argc, char **argv) {
             else if (reference == 'L') { L_ref++; }
             else if (reference == 'S') { S_ref++; }
             
-            if (address >= GLOBALS_START && address <= GLOBALS_END) { global++; }
-            else if (address >= HEAP_START && address <= HEAP_END) { heap++; }
-            else if (address >= STACK_START) { stack++; }
+            if (address > GLOBALS_START && address < GLOBALS_END) { global++; }
+            else if (address > HEAP_START && address < HEAP_END) { heap++; }
+            else if (address > STACK_START) { stack++; }
         }
     }
 
