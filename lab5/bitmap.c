@@ -8,7 +8,27 @@
  * height in the given bitmap file.
  */
 void read_bitmap_metadata(FILE *image, int *pixel_array_offset, int *width, int *height) {
-
+    int error;
+    
+    fseek(image, 10, SEEK_SET);
+    error = fread(pixel_array_offset, sizeof(int), 1, image);
+    if (error != 1) {
+        fprintf(stderr, "invalid");
+        exit(1);
+    }
+    fseek(image, 18, SEEK_SET);
+    error = fread(width, sizeof(int), 1, image);
+    if (error != 1) {
+        fprintf(stderr, "invalid");
+        exit(1);
+    }
+    fseek(image, 22, SEEK_SET);
+    error = fread(height, sizeof(int), 1, image);
+    if (error != 1) {
+        fprintf(stderr, "invalid");
+        exit(1);
+    }
+    rewind(image);
 }
 
 /*
@@ -28,7 +48,45 @@ void read_bitmap_metadata(FILE *image, int *pixel_array_offset, int *width, int 
  * 4. Return the address of the first `struct pixel *` you initialized.
  */
 struct pixel **read_pixel_array(FILE *image, int pixel_array_offset, int width, int height) {
-
+    struct pixel ** struct_struct_ptr = malloc(sizeof(struct pixel *) * height);
+    if (struct_struct_ptr == NULL) {
+        fprintf(stderr, "invalid");
+        exit(1); 
+    }
+    
+    fseek(image, pixel_array_offset, SEEK_SET);
+    
+    for (int count = 0; count < height; count++) {
+        struct_struct_ptr[count] = malloc(sizeof(struct pixel) * width);
+        if (struct_struct_ptr[count] == NULL) {
+            fprintf(stderr, "invalid");
+            exit(1);
+        }
+        for (int row_count = 0; row_count < width; row_count++) {
+            int error;
+            struct pixel pixel_struct;
+            error = fread(&(pixel_struct.blue), sizeof(unsigned char), 1, image);
+            if (error != 1) {
+                fprintf(stderr, "invalid");
+                exit(1);
+            }
+            
+            error = fread(&(pixel_struct.green), sizeof(unsigned char), 1, image);
+            if (error != 1) {
+                fprintf(stderr, "invalid");
+                exit(1);
+            }
+            
+            error = fread(&(pixel_struct.red), sizeof(unsigned char), 1, image);
+            if (error != 1) {
+                fprintf(stderr, "invalid");
+                exit(1);
+            }
+            
+            struct_struct_ptr[count][row_count] = pixel_struct;
+        }
+    }
+    return struct_struct_ptr;
 }
 
 
