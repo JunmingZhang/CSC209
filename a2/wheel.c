@@ -15,7 +15,23 @@
    Note: Do not make copies of the words.
 */
 char **prune_word_list(char **words, int len, int *words_remaining) {
-    return NULL;
+    char **new_words = NULL;
+    int words_left = 0;
+    if (words != NULL) {
+        //search for each word, if the word found has the same length
+        //as providing, add the word pointer to the word_list
+        for (int start = 0; words[start]; start++){
+            if (strlen(words[start]) == len) {
+                words_left++;
+                new_words = realloc(new_words, sizeof(char*) * (1 + words_left));
+                new_words[words_left - 1] = (words[start]);
+                new_words[words_left] = NULL;
+            }
+        }
+    }
+    //set the number of word pointers remaining in the word list generated
+    *words_remaining = words_left;
+    return new_words;
 }
 
 
@@ -42,7 +58,40 @@ void deallocate_pruned_word_list(char **word_list) {
     printf("There are no words of that length.\n");
 */
 char **get_word_list_of_length(char **words, int *len) {
-    return NULL;
+    char *error = NULL;
+    char **prune_list = NULL;
+    int *words_remain = malloc(sizeof(int));
+    do {
+        int word_length;
+        char len_literal[BUF_SIZE];
+
+        //get the length user input
+        printf("Length of words to use? ");
+        error = fgets(len_literal, BUF_SIZE, stdin);
+        //if the input cannot be read, let the user to input a new one
+        if (error == NULL) {
+            printf("There are no words of that length.\n");
+        } else {
+            //extract the user input to the an integer
+            //if the number is invalid, like -1, 0..., let the user to provide a new one
+            word_length = strtol(len_literal, NULL, 10);
+            if (word_length <= 0) {
+                printf("There are no words of that length.\n");
+            } else {
+                //execute prune_word_list to generate the array of word pointers
+                //let the user to provide a new input if the length of the word is not
+                //found or the word list provide is null
+                prune_list = prune_word_list(words, word_length, words_remain);
+                if (prune_list == NULL) {
+                    printf("There are no words of that length.\n");
+                } else {
+                    *len = word_length;
+                }
+            }
+        }
+    } while (*words_remain == 0); //generate the list until there is at least one word pointer in the list
+    free(words_remain);
+    return prune_list;
 }
 
 
