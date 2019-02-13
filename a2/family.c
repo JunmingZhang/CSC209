@@ -135,7 +135,7 @@ Family *find_biggest_family(Family *fam_list) {
     Family *curr = fam_list;
     int max_count = 0;
     Family *max_curr = NULL;
-    while(curr != NULL){
+    while(curr){
         //record the node with maximum number of words
         //if next node has more words, change to this node
         if (curr->num_words >= max_count) {
