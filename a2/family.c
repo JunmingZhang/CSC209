@@ -48,10 +48,6 @@ void print_families(Family* fam_list) {
    maxwords to family_increment, and next to NULL.
 */
 Family *new_family(char *str) {
-    /* initialize a struct of family list with the requirement above
-       return a pointer to the struct 
-    */
-
     //initialize the node,
     //allocate space for the family node, do error checking for malloc
     Family *fam_list = malloc(sizeof(Family));
