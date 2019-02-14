@@ -17,7 +17,7 @@
 char **prune_word_list(char **words, int len, int *words_remaining) {
     char **new_words = NULL;
     int words_left = 0;
-    if (words != NULL) {
+    if (words) {
         //search for each word, if the word found has the same length
         //as providing, add the word pointer to the word_list
         for (int start = 0; words[start]; start++){
