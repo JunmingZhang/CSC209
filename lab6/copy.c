@@ -12,10 +12,10 @@
  */
 
 char *copy(char *dest, const char *src, int capacity) {
-    for (int cap = capacity; cap > 0; cap--) {
-        memset(dest, src[cap - 1], cap);
+    for (int cap = 0; cap < capacity && src[cap] != '\0'; cap++) {
+       dest[cap] = src[cap];
+       dest[cap + 1] = '\0';
     }
-    dest[capacity] = '\0';
     return dest;
 }
 
