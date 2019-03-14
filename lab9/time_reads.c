@@ -51,11 +51,17 @@ int main(int argc, char **argv) {
 
     // Specify that we don't want any signals to be blocked during
     // execution of handler:
-    sigemptyset(&newact.sa_mask);
+    if (sigemptyset(&newact.sa_mask) == -1) {
+      perror("sigemptyset");
+      exit(1);
+    }
 
     // Modify the signal table so that handler is called when
     // signal SIGPROF is received:
-    sigaction(SIGPROF, &newact, NULL);
+    if (sigaction(SIGPROF, &newact, NULL) == -1) {
+      perror("sigaction");
+      exit(1);
+    }
 
     //setup the timer struct
     struct itimerval timeact;
