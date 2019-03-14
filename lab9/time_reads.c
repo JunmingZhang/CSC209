@@ -74,7 +74,10 @@ int main(int argc, char **argv) {
     timeact.it_value.tv_sec = seconds;
 
     //set up the timer to send the signal when timer stops
-    setitimer(ITIMER_PROF, &timeact, NULL);
+    if(setitimer(ITIMER_PROF, &timeact, NULL) == -1) {
+      perror("setitimer");
+      exit(1);
+    }
 
     /* In an infinite loop, read an int from a random location in the file,
      * and print it to stderr.
