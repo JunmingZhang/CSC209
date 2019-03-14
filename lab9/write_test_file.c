@@ -5,7 +5,6 @@
 /* Write random integers (in binary) to a file with the name given by the command-line
  * argument.  This program creates a data file for use by the time_reads program.
  */
-
 int main(int argc, char **argv) {
     if (argc != 2) {
         fprintf(stderr, "Usage: write_test_file filename\n");
@@ -19,10 +18,13 @@ int main(int argc, char **argv) {
     }
 
     // TODO: complete this program according its description above.
-
-
-
-
+    for (int i = 0; i < 100; i++) {
+        int ran = random() % 100;
+        if (fwrite(&ran, sizeof(int), 1, fp) != 1) {
+            perror("fwrite");
+            exit(1);
+        }
+    }
 
     fclose(fp);
     return 0;
