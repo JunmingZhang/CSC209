@@ -20,8 +20,10 @@ int get_prev_read(int *read_task, int child_count);
 int *generate_task_count(int child_num, int *read_tasks, int *threshould);
 
 void free_task_count(int *task_count);
-void pmerge(int task_count[], int threshoulds[], struct rec merge_array[], int *pipe_fd[], int child_index);
+void pmerge(int task_count[], int threshoulds[], struct rec merge_array[],
+            int *pipe_fd[], int child_index);
 int find_minimum(struct rec merge_array[], int child_num);
-void dealloc_arrays(int *read_tasks, int *threshoulds, int *pipe_fd[], int rec_num);
+void dealloc_arrays(int *read_tasks, int *threshoulds,
+                    int *pipe_fd[], int rec_num);
 
 #endif /* _HELPER_H */

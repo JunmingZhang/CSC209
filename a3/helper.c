@@ -99,7 +99,8 @@ int* generate_task_count(int child_num, int* read_tasks, int* threshoulds) {
 
 void free_task_count(int *task_count) { free(task_count); }
 
-void pmerge(int task_count[], int threshoulds[], struct rec merge_array[], int* pipe_fd[], int child_index) {
+void pmerge(int task_count[], int threshoulds[], struct rec merge_array[],
+            int* pipe_fd[], int child_index) {
     int* rec_index = &(task_count[child_index]);
 
     if (*rec_index >= threshoulds[child_index]) {
@@ -136,7 +137,8 @@ int find_minimum(struct rec merge_array[], int child_num) {
     return min_index;
 }
 
-void dealloc_arrays(int* read_tasks, int* threshoulds, int* pipe_fd[], int rec_num) {
+void dealloc_arrays(int* read_tasks, int* threshoulds,
+                    int* pipe_fd[], int rec_num) {
     free(read_tasks);
 	free(threshoulds);
 	free_fd(pipe_fd, rec_num);

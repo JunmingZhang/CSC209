@@ -5,7 +5,8 @@
 #include <sys/time.h>
 #include "helper.h"
 
-void child_task(int expect_task, int child_count, int prev_read, int **pipe_fd, char *input_file) {
+void child_task(int expect_task, int child_count, int prev_read,
+				int **pipe_fd, char *input_file) {
 	FILE *fp = fopen(input_file, "rb");
 	int threshould = prev_read + expect_task;
 
@@ -34,7 +35,8 @@ void child_task(int expect_task, int child_count, int prev_read, int **pipe_fd, 
 	qsort(rec_array, expect_task, sizeof(struct rec), compare_freq);
 
 	for (int write_in = prev_read; write_in < threshould; write_in++) {
-		if (write(pipe_fd[write_in][1], &(rec_array[write_in - prev_read]), sizeof(struct rec)) != sizeof(struct rec)) {
+		if (write(pipe_fd[write_in][1], &(rec_array[write_in - prev_read]),
+			sizeof(struct rec)) != sizeof(struct rec)) {
 			perror("write in child pipe");
 			exit(1);
 		}
@@ -51,7 +53,8 @@ void child_task(int expect_task, int child_count, int prev_read, int **pipe_fd, 
 	}
 }
 
-void parent_task(int child_num, int rec_num, int *read_tasks, int *threshoulds, int **pipe_fd, char *output_file) {
+void parent_task(int child_num, int rec_num, int *read_tasks,
+				int *threshoulds, int **pipe_fd, char *output_file) {
 	FILE *fp = fopen(output_file, "wb");
 	if (fp == NULL) {
 		perror("fopen at parent task");
@@ -75,7 +78,8 @@ void parent_task(int child_num, int rec_num, int *read_tasks, int *threshoulds, 
 		}
 
 		int min_frec_index = find_minimum(merge_array, child_num);
-		if (fwrite(&(merge_array[min_frec_index]), sizeof(struct rec), 1, fp) != 1) {
+		if (fwrite(&(merge_array[min_frec_index]),
+					sizeof(struct rec), 1, fp) != 1) {
 			fprintf(stderr, "fwrite at parent_task");
 			exit(1);
 		}
