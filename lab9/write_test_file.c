@@ -26,6 +26,10 @@ int main(int argc, char **argv) {
         }
     }
 
-    fclose(fp);
+    if (fclose(fp) != 0) {
+        fprintf(stderr, "fclose");
+        exit(1);
+    }
+    
     return 0;
 }
