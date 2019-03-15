@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include "helper.h"
 
 void child_task(int expect_task, int child_count, int prev_read, int **pipe_fd, char *input_file) {
@@ -170,11 +171,20 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
+	struct timeval starttime, endtime;
+	double timediff;
+
 	int option;
 	int child_num;
 	char *input_file;
 	char *output_file;
 
+	if ((gettimeofday(&starttime, NULL)) == -1) {
+		perror("gettimeofday");
+		exit(1);
+	}
+	
+	// code you want to time
 	while ((option = getopt(argc, argv, "n:f:o:")) != -1) {
 		switch (option) {
 		case 'n':
@@ -198,5 +208,15 @@ int main(int argc, char *argv[]) {
 	}
 
 	divide_task(input_file, output_file, child_num);
+	
+	if ((gettimeofday(&endtime, NULL)) == -1) {
+		perror("gettimeofday");
+		exit(1);
+	}
+
+	timediff = (endtime.tv_sec - starttime.tv_sec) +
+		(endtime.tv_usec - starttime.tv_usec) / 1000000.0;
+	fprintf(stdout, "%.4f\n", timediff);
+
 	return 0;
 }
