@@ -113,6 +113,12 @@ void pmerge(int task_count[], int threshoulds[], struct rec merge_array[], int* 
             perror("read at parent_task while initializing");
             exit(1);
         }
+
+        if (close(pipe_fd[*rec_index][0]) == -1) {
+			perror("close reading in parent_task");
+			exit(1);
+		}
+
         (*rec_index)++;
     }
 }

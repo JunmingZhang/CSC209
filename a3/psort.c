@@ -86,13 +86,6 @@ void parent_task(int child_num, int rec_num, int *read_tasks, int *threshoulds, 
 	free(merge_array);
 	free_task_count(task_count);
 
-	for (int rec_no = 0; rec_no < rec_num; rec_no++) {
-		if (close(pipe_fd[rec_no][0]) == -1) {
-			perror("close reading in parent_task");
-			exit(1);
-		}
-	}
-
 	if (fclose(fp) != 0) {
 		fprintf(stderr, "fail to close file at parent_task");
 		exit(1);
