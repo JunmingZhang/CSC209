@@ -175,6 +175,7 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
+	//add a timer to count running time for curiosity
 	struct timeval starttime, endtime;
 	double timediff;
 
