@@ -139,6 +139,7 @@ int* generate_task_count(int child_num, int* read_tasks, int* threshoulds) {
     int *task_count = malloc(sizeof(int) * child_num);
     if (task_count == NULL) {
         perror("malloc at generate_task_count");
+        exit(1);
     }
 
     // each child write recs in the chunk starting at index,
