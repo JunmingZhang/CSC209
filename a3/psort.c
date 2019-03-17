@@ -5,9 +5,15 @@
 #include <sys/time.h>
 #include "helper.h"
 
+/* 
+ * the task of each child process: sort
+ * indicated number of records from minimum to maximum
+ */
 void child_task(int expect_task, int child_count, int prev_read,
 				int **pipe_fd, char *input_file) {
 	FILE *fp = fopen(input_file, "rb");
+	// upper bound of the index in the pipe (file descriptor)
+	// the child needs to read out for sorting
 	int threshould = prev_read + expect_task;
 
 	if (fp == NULL) {
@@ -15,15 +21,16 @@ void child_task(int expect_task, int child_count, int prev_read,
 		exit(1);
 	}
 
-	struct rec rec_array[expect_task];
-	for (int close_no = 0; close_no < prev_read + expect_task; close_no++) {
-		if (close(pipe_fd[close_no][0]) == -1)
-		{
+	// close all writing file dexcriptors before the threshould
+	for (int close_no = 0; close_no < threshould; close_no++) {
+		if (close(pipe_fd[close_no][0]) == -1) {
 			perror("close reading in child_task");
 			exit(1);
 		}
 	}
 
+	// read out all records this single child need to merge
+	struct rec rec_array[expect_task];
 	fseek(fp, prev_read * sizeof(struct rec), SEEK_SET);
 	for (int task_num = 0; task_num < expect_task; task_num++) {
 		if (fread(&(rec_array[task_num]), sizeof(struct rec), 1, fp) != 1) {
@@ -32,8 +39,11 @@ void child_task(int expect_task, int child_count, int prev_read,
 		}
 	}
 
+	// sort the recs in the array from minimum to maximum
 	qsort(rec_array, expect_task, sizeof(struct rec), compare_freq);
 
+	// write all recs sorted into the pipe
+	// after each writing, close that file descriptor
 	for (int write_in = prev_read; write_in < threshould; write_in++) {
 		if (write(pipe_fd[write_in][1], &(rec_array[write_in - prev_read]),
 			sizeof(struct rec)) != sizeof(struct rec)) {
@@ -53,6 +63,10 @@ void child_task(int expect_task, int child_count, int prev_read,
 	}
 }
 
+/*
+ * the task of the parent process: merge all sorted sub chunk of
+ * children and sort them from minimum to maximum
+ */
 void parent_task(int child_num, int rec_num, int *read_tasks,
 				int *threshoulds, int **pipe_fd, char *output_file) {
 	FILE *fp = fopen(output_file, "wb");
@@ -61,22 +75,28 @@ void parent_task(int child_num, int rec_num, int *read_tasks,
 		exit(1);
 	}
 
+	// initialize the array used to store each rec read from each child chunk
 	struct rec *merge_array = malloc(child_num * sizeof(struct rec));
 	if (merge_array == NULL) {
 		perror("malloc at parent_task");
 		exit(1);
 	}
 
+	// generate an array of starting indices of the file descriptor each child wrote
 	int *task_count = generate_task_count(child_num, read_tasks, threshoulds);
-	int write_rec_num = rec_num;
 
+	// write a rec into the file for each iteration, iterate the number of rec times
+	int write_rec_num = rec_num;
 	while (write_rec_num > 0) {
+		// initialize the merge array at the first iteration by pmerge in helper.c
 		if (write_rec_num == rec_num) {
 			for (int child_count = 0; child_count < child_num; child_count++) {
 				pmerge(task_count, threshoulds, merge_array, pipe_fd, child_count);
 			}
 		}
 
+		// find the rec with minimum freq in the merge array
+		// and write it to the file in binary form
 		int min_frec_index = find_minimum(merge_array, child_num);
 		if (fwrite(&(merge_array[min_frec_index]),
 					sizeof(struct rec), 1, fp) != 1) {
@@ -84,10 +104,12 @@ void parent_task(int child_num, int rec_num, int *read_tasks,
 			exit(1);
 		}
 
+		// after wrting, update the merge array by pmerge
 		pmerge(task_count, threshoulds, merge_array, pipe_fd, min_frec_index);
 		write_rec_num--;
 	}
 
+	// free all allocate space for parent process
 	free(merge_array);
 	free_task_count(task_count);
 
@@ -97,30 +119,44 @@ void parent_task(int child_num, int rec_num, int *read_tasks,
 	}
 }
 
+/*
+ * central regulation and control function,
+ * divide parent task and children tasks in this functiom
+ */
 void divide_task(char *input_file, char *output_file, int child_num) {
 
+	// calculate the number of records in the input file
 	int rec_num = get_file_size(input_file) / sizeof(struct rec);
 
+	// compute the number of recs each child need to process
 	int rec_avg = rec_num / child_num;
 	int rec_remain = rec_num % child_num;
 
+	// initialize the array to store the number of recs
+	// each child need to process
 	int *read_tasks = malloc(sizeof(int) * child_num);
 	if (read_tasks == NULL) {
 		perror("malloc for read_tasks at divide_task");
 		exit(1);
 	}
 
+	// initialize the array to store the upper bound index
+	// (file descriptor) each child to read from the pipe
 	int *threshoulds = malloc(sizeof(int) * child_num);
 	if (threshoulds == NULL) {
 		perror("malloc for threshoulds at divide_task");
 		exit(1);
 	}
 
+	// initialize the pipe for file descriptors
 	int **pipe_fd = alloc_pipe_fd(rec_num);
 
+	// execute each child task
 	for (int child_count = 0; child_count < child_num; child_count++) {
+		// the number of recs a child need to process
 		int expect_task = 0;
 
+		// calculate the number of recs a child to process
 		if (rec_remain > 0) {
 			expect_task = rec_avg + 1;
 			rec_remain--;
@@ -128,11 +164,16 @@ void divide_task(char *input_file, char *output_file, int child_num) {
 			expect_task = rec_avg;
 		}
 
+		// put the number of tasks each child need to read to read_tasks
 		read_tasks[child_count] = expect_task;
 
+		// calculate the number of tasks for previous children to read
 		int prev_read = get_prev_read(read_tasks, child_count);
+
+		// calculate the threshould (maximum index in the pipe) for a child to process
 		threshoulds[child_count] = prev_read + expect_task;
 
+		// initialize the chunk of pipes the current child need
 		for (int pipe_up = prev_read; pipe_up < threshoulds[child_count]; pipe_up++) {
 			if (pipe(pipe_fd[pipe_up]) == -1) {
 				perror("pipe");
@@ -142,17 +183,21 @@ void divide_task(char *input_file, char *output_file, int child_num) {
 
 		int divide = fork();
 
+		// fork fails if return value < 0 (-1), terminates this child
 		if (divide < 0) {
 			perror("fork at divide_task");
 			exit(1);
 		}
 
+		// fork returns 0 for child process, call child_task function to do what a child does
+		// and then deallocate all space allocated in the child process
 		else if (divide == 0) {
 			child_task(expect_task, child_count, prev_read, pipe_fd, input_file);
 			dealloc_arrays(read_tasks, threshoulds, pipe_fd, rec_num);
 			exit(0);
 		}
 
+		// for parent process in each iteration, close the current writing file descriptors
 		else {
 			for (int pipe_up = prev_read; pipe_up < threshoulds[child_count]; pipe_up++) {
 				if (close(pipe_fd[pipe_up][1]) == -1) {
@@ -163,8 +208,10 @@ void divide_task(char *input_file, char *output_file, int child_num) {
 		}
 	}
 
+	// call parent_task function to do merging and writing
 	parent_task(child_num, rec_num, read_tasks, threshoulds, pipe_fd, output_file);
 
+	// wait for each child and deallocate space for parent process allocated
 	call_wait(child_num);
 	dealloc_arrays(read_tasks, threshoulds, pipe_fd, rec_num);
 }
@@ -179,11 +226,13 @@ int main(int argc, char *argv[]) {
 	struct timeval starttime, endtime;
 	double timediff;
 
+	// process three inputs from the user by the flag given
 	int option;
 	int child_num;
 	char *input_file;
 	char *output_file;
 
+	// start timing
 	if ((gettimeofday(&starttime, NULL)) == -1) {
 		perror("gettimeofday");
 		exit(1);
@@ -207,18 +256,22 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	// terminate the program if the number of child processes provided is at most 0
 	if (child_num <= 0) {
 		fprintf(stderr, "arithmetic error, there is at least one child");
 		exit(0);
 	}
 
+	// call divide_task for regulating children and parent process
 	divide_task(input_file, output_file, child_num);
 	
+	// end timing
 	if ((gettimeofday(&endtime, NULL)) == -1) {
 		perror("gettimeofday");
 		exit(1);
 	}
 
+	// print timing result to standard out
 	timediff = (endtime.tv_sec - starttime.tv_sec) +
 		(endtime.tv_usec - starttime.tv_usec) / 1000000.0;
 	fprintf(stdout, "%.4f\n", timediff);
