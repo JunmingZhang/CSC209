@@ -55,7 +55,6 @@ int** alloc_pipe_fd(int rec_num) {
     }
 
     for (int pipe_pt = 0; pipe_pt < rec_num; pipe_pt++) {
-        //printf("*");
         if ((pipe_fd[pipe_pt] = malloc(sizeof(int) * 2)) == NULL) {
             perror("malloc for file descriptors in pipe_fd");
             exit(1);
