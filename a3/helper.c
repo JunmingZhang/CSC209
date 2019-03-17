@@ -93,6 +93,11 @@ int get_prev_read(int *read_task, int child_count) {
 /* read out all records this single child need to merge */
 struct rec* array_to_write(int expect_task, int prev_read, FILE *fp) {
 	struct rec *rec_array = malloc(sizeof(struct rec) * expect_task);
+    if (rec_array == NULL) {
+        perror("malloc at array_to_write, child_task");
+        exit(1);
+    }
+
 	fseek(fp, prev_read * sizeof(struct rec), SEEK_SET);
 	for (int task_num = 0; task_num < expect_task; task_num++) {
 		if (fread(&(rec_array[task_num]), sizeof(struct rec), 1, fp) != 1) {
