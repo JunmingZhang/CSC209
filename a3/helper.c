@@ -90,6 +90,42 @@ int get_prev_read(int *read_task, int child_count) {
     return prev_read;
 }
 
+/* read out all records this single child need to merge */
+struct rec* array_to_write(int expect_task, int prev_read, FILE *fp) {
+	struct rec *rec_array = malloc(sizeof(struct rec) * expect_task);
+	fseek(fp, prev_read * sizeof(struct rec), SEEK_SET);
+	for (int task_num = 0; task_num < expect_task; task_num++) {
+		if (fread(&(rec_array[task_num]), sizeof(struct rec), 1, fp) != 1) {
+			fprintf(stderr, "fread at child_task");
+			exit(1);
+		}
+	}
+    return rec_array;
+}
+
+/* free the rec_array used for wrting to the pipe for each child */
+void free_rec_array(struct rec *rec_array) { free(rec_array); }
+
+/*
+ * write all recs sorted into the pipe for child task,
+ * after each writing, close that file descriptor
+ */
+void write_to_pipe(int prev_read, int threshould,
+                    int** pipe_fd, struct rec* rec_array) {
+    for (int write_in = prev_read; write_in < threshould; write_in++) {
+		if (write(pipe_fd[write_in][1], &(rec_array[write_in - prev_read]),
+			sizeof(struct rec)) != sizeof(struct rec)) {
+			perror("write in child pipe");
+			exit(1);
+		}
+
+		if (close(pipe_fd[write_in][1]) == -1) {
+			perror("close writing in child_task");
+			exit(1);
+		}
+	}
+}
+
 /*
  * generate an array of starting indices
  * of the file descriptor each child wrote
@@ -111,6 +147,27 @@ int* generate_task_count(int child_num, int* read_tasks, int* threshoulds) {
 
 /* free the array of task_count */
 void free_task_count(int *task_count) { free(task_count); }
+
+/*
+ * write the struct to the binary file,
+ * re-merge the input merge array by finding the struct
+ * with the smallest freq at the top of all child chunks
+ * of pipes
+ */
+void merge(int child_num, int* task_count, int* threshoulds,
+			int** pipe_fd, FILE* fp, struct rec *merge_array) {
+	// find the rec with minimum freq in the merge array
+	// and write it to the file in binary form
+	int child_index = find_minimum(merge_array, child_num);
+	if (fwrite(&(merge_array[child_index]),
+		sizeof(struct rec), 1, fp) != 1) {
+		fprintf(stderr, "fwrite at parent_task");
+		exit(1);
+	}
+
+	// after wrting, update the merge array by pmerge
+	pmerge(task_count, threshoulds, merge_array, pipe_fd, child_index);
+}
 
 /* 
  * update the merge array in the parent_task when initializing

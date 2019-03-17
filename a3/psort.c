@@ -11,12 +11,12 @@
  */
 void child_task(int expect_task, int child_count, int prev_read,
 				int **pipe_fd, char *input_file) {
-	FILE *fp = fopen(input_file, "rb");
+	FILE *infp = fopen(input_file, "rb");
 	// upper bound of the index in the pipe (file descriptor)
 	// the child needs to read out for sorting
 	int threshould = prev_read + expect_task;
 
-	if (fp == NULL) {
+	if (infp == NULL) {
 		perror("fopen at child_task");
 		exit(1);
 	}
@@ -30,34 +30,17 @@ void child_task(int expect_task, int child_count, int prev_read,
 	}
 
 	// read out all records this single child need to merge
-	struct rec rec_array[expect_task];
-	fseek(fp, prev_read * sizeof(struct rec), SEEK_SET);
-	for (int task_num = 0; task_num < expect_task; task_num++) {
-		if (fread(&(rec_array[task_num]), sizeof(struct rec), 1, fp) != 1) {
-			fprintf(stderr, "fread at child_task");
-			exit(1);
-		}
-	}
+	struct rec *rec_array = array_to_write(expect_task, prev_read, infp);
 
 	// sort the recs in the array from minimum to maximum
 	qsort(rec_array, expect_task, sizeof(struct rec), compare_freq);
 
 	// write all recs sorted into the pipe
 	// after each writing, close that file descriptor
-	for (int write_in = prev_read; write_in < threshould; write_in++) {
-		if (write(pipe_fd[write_in][1], &(rec_array[write_in - prev_read]),
-			sizeof(struct rec)) != sizeof(struct rec)) {
-			perror("write in child pipe");
-			exit(1);
-		}
+	write_to_pipe(prev_read, threshould, pipe_fd, rec_array);
 
-		if (close(pipe_fd[write_in][1]) == -1) {
-			perror("close writing in child_task");
-			exit(1);
-		}
-	}
-
-	if (fclose(fp) != 0) {
+	free_rec_array(rec_array);
+	if (fclose(infp) != 0) {
 		fprintf(stderr, "fail to close the file at child_task");
 		exit(1);
 	}
@@ -69,8 +52,8 @@ void child_task(int expect_task, int child_count, int prev_read,
  */
 void parent_task(int child_num, int rec_num, int *read_tasks,
 				int *threshoulds, int **pipe_fd, char *output_file) {
-	FILE *fp = fopen(output_file, "wb");
-	if (fp == NULL) {
+	FILE *outfp = fopen(output_file, "wb");
+	if (outfp == NULL) {
 		perror("fopen at parent task");
 		exit(1);
 	}
@@ -95,17 +78,8 @@ void parent_task(int child_num, int rec_num, int *read_tasks,
 			}
 		}
 
-		// find the rec with minimum freq in the merge array
-		// and write it to the file in binary form
-		int min_frec_index = find_minimum(merge_array, child_num);
-		if (fwrite(&(merge_array[min_frec_index]),
-					sizeof(struct rec), 1, fp) != 1) {
-			fprintf(stderr, "fwrite at parent_task");
-			exit(1);
-		}
-
-		// after wrting, update the merge array by pmerge
-		pmerge(task_count, threshoulds, merge_array, pipe_fd, min_frec_index);
+		// merge the merge_array by calling ther merge function
+		merge(child_num, task_count, threshoulds, pipe_fd, outfp, merge_array);
 		write_rec_num--;
 	}
 
@@ -113,7 +87,7 @@ void parent_task(int child_num, int rec_num, int *read_tasks,
 	free(merge_array);
 	free_task_count(task_count);
 
-	if (fclose(fp) != 0) {
+	if (fclose(outfp) != 0) {
 		fprintf(stderr, "fail to close file at parent_task");
 		exit(1);
 	}

@@ -17,9 +17,16 @@ int **alloc_pipe_fd(int rec_num);
 void free_fd(int **pipe_fd, int rec_num);
 void call_wait(int child_num);
 int get_prev_read(int *read_task, int child_count);
-int *generate_task_count(int child_num, int *read_tasks, int *threshould);
+struct rec* array_to_write(int expect_task, int prev_read, FILE *fp);
 
+void free_rec_array(struct rec *rec_array);
+void write_to_pipe(int prev_read, int threshould,
+                    int** pipe_fd, struct rec* rec_array);
+int *generate_task_count(int child_num, int *read_tasks, int *threshould);
 void free_task_count(int *task_count);
+
+void merge(int child_num, int* task_count, int* threshoulds,
+			int** pipe_fd, FILE* fp, struct rec *merge_array);
 void pmerge(int task_count[], int threshoulds[], struct rec merge_array[],
             int *pipe_fd[], int child_index);
 int find_minimum(struct rec merge_array[], int child_num);
