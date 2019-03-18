@@ -12,17 +12,14 @@
 void child_task(int expect_task, int child_count, int prev_read,
 				int **pipe_fd, char *input_file) {
 	FILE *infp = fopen(input_file, "rb");
-	// upper bound of the index in the pipe (file descriptor)
-	// the child needs to read out for sorting
-	int threshould = prev_read + expect_task;
 
 	if (infp == NULL) {
 		perror("fopen at child_task");
 		exit(1);
 	}
 
-	// close all writing file dexcriptors before the threshould
-	for (int close_no = 0; close_no < threshould; close_no++) {
+	// close all writing file dexcriptors before the child_count inclusively
+	for (int close_no = 0; close_no <= child_count; close_no++) {
 		if (close(pipe_fd[close_no][0]) == -1) {
 			perror("close reading in child_task");
 			exit(1);
@@ -37,7 +34,7 @@ void child_task(int expect_task, int child_count, int prev_read,
 
 	// write all recs sorted into the pipe
 	// after each writing, close that file descriptor
-	write_to_pipe(prev_read, threshould, pipe_fd, rec_array);
+	write_to_pipe(child_count, expect_task, pipe_fd, rec_array);
 
 	free_rec_array(rec_array);
 	if (fclose(infp) != 0) {
@@ -50,8 +47,7 @@ void child_task(int expect_task, int child_count, int prev_read,
  * the task of the parent process: merge all sorted sub chunk of
  * children and sort them from minimum to maximum
  */
-void parent_task(int child_num, int rec_num, int *read_tasks,
-				int *threshoulds, int **pipe_fd, char *output_file) {
+void parent_task(int child_num, int rec_num, int *read_tasks, int **pipe_fd, char *output_file) {
 	FILE *outfp = fopen(output_file, "wb");
 	if (outfp == NULL) {
 		perror("fopen at parent task");
@@ -66,7 +62,7 @@ void parent_task(int child_num, int rec_num, int *read_tasks,
 	}
 
 	// generate an array of starting indices of the file descriptor each child wrote
-	int *task_count = generate_task_count(child_num, read_tasks, threshoulds);
+	int *task_count = generate_task_count(child_num);
 
 	// write a rec into the file for each iteration, iterate the number of rec times
 	int write_rec_num = rec_num;
@@ -74,18 +70,26 @@ void parent_task(int child_num, int rec_num, int *read_tasks,
 		// initialize the merge array at the first iteration by pmerge in helper.c
 		if (write_rec_num == rec_num) {
 			for (int child_count = 0; child_count < child_num; child_count++) {
-				pmerge(task_count, threshoulds, merge_array, pipe_fd, child_count);
+				pmerge(task_count, read_tasks, merge_array, pipe_fd, child_count);
 			}
 		}
 
 		// merge the merge_array by calling ther merge function
-		merge(child_num, task_count, threshoulds, pipe_fd, outfp, merge_array);
+		merge(child_num, task_count, read_tasks, pipe_fd, outfp, merge_array);
 		write_rec_num--;
 	}
 
 	// free all allocate space for parent process
 	free(merge_array);
 	free_task_count(task_count);
+
+	// close all reading descriptors
+	for (int child_count = 0; child_count < child_num; child_count++) {
+		if (close(pipe_fd[child_count][0]) == -1) {
+			perror("close reading in parent_task");
+			exit(1);
+		}
+	}
 
 	if (fclose(outfp) != 0) {
 		fprintf(stderr, "fail to close file at parent_task");
@@ -114,16 +118,8 @@ void divide_task(char *input_file, char *output_file, int child_num) {
 		exit(1);
 	}
 
-	// initialize the array to store the upper bound index
-	// (file descriptor) each child to read from the pipe
-	int *threshoulds = malloc(sizeof(int) * child_num);
-	if (threshoulds == NULL) {
-		perror("malloc for threshoulds at divide_task");
-		exit(1);
-	}
-
 	// initialize the pipe for file descriptors
-	int **pipe_fd = alloc_pipe_fd(rec_num);
+	int **pipe_fd = alloc_pipe_fd(child_num);
 
 	// execute each child task
 	for (int child_count = 0; child_count < child_num; child_count++) {
@@ -141,18 +137,10 @@ void divide_task(char *input_file, char *output_file, int child_num) {
 		// put the number of tasks each child need to read to read_tasks
 		read_tasks[child_count] = expect_task;
 
-		// calculate the number of tasks for previous children to read
-		int prev_read = get_prev_read(read_tasks, child_count);
-
-		// calculate the threshould (maximum index in the pipe) for a child to process
-		threshoulds[child_count] = prev_read + expect_task;
-
 		// initialize the chunk of pipes the current child need
-		for (int pipe_up = prev_read; pipe_up < threshoulds[child_count]; pipe_up++) {
-			if (pipe(pipe_fd[pipe_up]) == -1) {
-				perror("pipe");
-				exit(1);
-			}
+		if (pipe(pipe_fd[child_count]) == -1) {
+			perror("pipe");
+			exit(1);
 		}
 
 		int divide = fork();
@@ -166,28 +154,29 @@ void divide_task(char *input_file, char *output_file, int child_num) {
 		// fork returns 0 for child process, call child_task function to do what a child does
 		// and then deallocate all space allocated in the child process
 		else if (divide == 0) {
+			// calculate the number of tasks for previous children to read
+			int prev_read = get_prev_read(read_tasks, child_count);
+
 			child_task(expect_task, child_count, prev_read, pipe_fd, input_file);
-			dealloc_arrays(read_tasks, threshoulds, pipe_fd, rec_num);
+			dealloc_arrays(read_tasks, pipe_fd, child_num);
 			exit(0);
 		}
 
 		// for parent process in each iteration, close the current writing file descriptors
 		else {
-			for (int pipe_up = prev_read; pipe_up < threshoulds[child_count]; pipe_up++) {
-				if (close(pipe_fd[pipe_up][1]) == -1) {
-					perror("close write in parent");
-					exit(1);
-				}
+			if (close(pipe_fd[child_count][1]) == -1) {
+				perror("close write in parent");
+				exit(1);
 			}
 		}
 	}
 
 	// call parent_task function to do merging and writing
-	parent_task(child_num, rec_num, read_tasks, threshoulds, pipe_fd, output_file);
+	parent_task(child_num, rec_num, read_tasks, pipe_fd, output_file);
 
 	// wait for each child and deallocate space for parent process allocated
 	call_wait(child_num);
-	dealloc_arrays(read_tasks, threshoulds, pipe_fd, rec_num);
+	dealloc_arrays(read_tasks, pipe_fd, child_num);
 }
 
 int main(int argc, char *argv[]) {
