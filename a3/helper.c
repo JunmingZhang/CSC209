@@ -125,8 +125,8 @@ void write_to_pipe(int child_count, int expect_task,
 	}
 
     if (close(pipe_fd[child_count][1]) == -1) {
-			perror("close writing in child_task");
-			exit(1);
+		perror("close writing in child_task");
+		exit(1);
 	}
 }
 
