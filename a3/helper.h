@@ -2,7 +2,8 @@
 #define _HELPER_H
 
 #define SIZE 44
-#define OVERUPPER 30001 /* used for find_minimum and create a rec with maximum freq if a child chunk read up in pmerge */
+/* used for find_minimum and create a rec with maximum freq if a child chunk read up in pmerge */
+#define OVERUPPER 30001
 
 struct rec {
     int freq;

@@ -26,7 +26,7 @@ void child_task(int expect_task, int child_count, int prev_read,
 		}
 	}
 
-	// read out all records this single child need to merge
+	// read out all records this single child need to merge from the input file
 	struct rec *rec_array = array_to_write(expect_task, prev_read, infp);
 
 	// sort the recs in the array from minimum to maximum
@@ -61,7 +61,7 @@ void parent_task(int child_num, int rec_num, int *read_tasks, int **pipe_fd, cha
 		exit(1);
 	}
 
-	// generate an array of starting indices of the file descriptor each child wrote
+	// generate an array to count the number of recs each child has writen
 	int *task_count = generate_task_count(child_num);
 
 	// write a rec into the file for each iteration, iterate the number of rec times

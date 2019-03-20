@@ -131,7 +131,7 @@ void write_to_pipe(int child_count, int expect_task,
 }
 
 /*
- * generate an array of starting indices
+ * generate an array of counters
  * of the file descriptor each child wrote
  */
 int* generate_task_count(int child_num) {
@@ -141,7 +141,7 @@ int* generate_task_count(int child_num) {
         exit(1);
     }
 
-    // each child has not written any recs into the pipe at beginning
+    // each child has not written any recs into the pipe counts from 0
     for (int count = 0; count < child_num; count++) {
         task_count[count] = 0;
     }
