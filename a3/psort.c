@@ -197,7 +197,7 @@ int main(int argc, char *argv[]) {
 	double timediff;
 	*/
 
-	// return 0 if everything is normal otherwise return 0
+	// return 0 if everything is normal otherwise return 1
 	int return_val;
 	
 	// process three inputs from the user by the flag given
