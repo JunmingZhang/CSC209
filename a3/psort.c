@@ -101,7 +101,10 @@ void parent_task(int child_num, int rec_num, int *read_tasks, int **pipe_fd, cha
  * central regulation and control function,
  * divide parent task and children tasks in this functiom
  */
-void divide_task(char *input_file, char *output_file, int child_num) {
+int divide_task(char *input_file, char *output_file, int child_num) {
+
+	// check if child process returns normally
+	int return_val;
 
 	// calculate the number of records in the input file
 	int rec_num = get_file_size(input_file) / sizeof(struct rec);
@@ -175,8 +178,11 @@ void divide_task(char *input_file, char *output_file, int child_num) {
 	parent_task(child_num, rec_num, read_tasks, pipe_fd, output_file);
 
 	// wait for each child and deallocate space for parent process allocated
-	call_wait(child_num);
+	// if child exits abnormally, return 1, otherwise return 0
+	return_val = call_wait(child_num);
 	dealloc_arrays(read_tasks, pipe_fd, child_num);
+
+	return return_val;
 }
 
 int main(int argc, char *argv[]) {
@@ -191,6 +197,9 @@ int main(int argc, char *argv[]) {
 	double timediff;
 	*/
 
+	// return 0 if everything is normal otherwise return 0
+	int return_val;
+	
 	// process three inputs from the user by the flag given
 	int option;
 	int child_num;
@@ -230,7 +239,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// call divide_task for regulating children and parent process
-	divide_task(input_file, output_file, child_num);
+	return_val = divide_task(input_file, output_file, child_num);
 	
 	/*
 	// end timing
@@ -245,5 +254,5 @@ int main(int argc, char *argv[]) {
 	fprintf(stdout, "%.4f\n", timediff);
 	*/
 
-	return 0;
+	return return_val;
 }

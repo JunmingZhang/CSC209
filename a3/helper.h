@@ -16,7 +16,7 @@ int sum_prev_tasks(int child_count, int read_tasks[]);
 int **alloc_pipe_fd(int child_num);
 
 void free_fd(int **pipe_fd, int child_num);
-void call_wait(int child_num);
+int call_wait(int child_num);
 int get_prev_read(int *read_task, int child_count);
 struct rec* array_to_write(int expect_task, int prev_read, FILE *fp);
 

@@ -72,16 +72,22 @@ void free_fd(int** pipe_fd, int child_num) {
 }
 
 /* call wait for each child process in the parent process */
-void call_wait(int child_num) {
+int call_wait(int child_num) {
     int status;
+
+    // return normally if return_val == 0, abnormally if return_val == 1
+    int return_val = 0;
 
     for (int num_process = 0; num_process < child_num; num_process++) {
         if (wait(&status) == -1) {
             fprintf(stderr, "Child terminated abnormally\n");
+            return_val = 1;
         } else if (WIFSIGNALED(status)) {
             fprintf(stderr, "Child terminated abnormally\n");
+            return_val = 1;
         }
     }
+    return return_val;
 }
 
 /* get the number of previously-read recs by calling sum_prev_tasks as helper */
