@@ -185,9 +185,11 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
+	/*
 	//add a timer to count running time for curiosity
 	struct timeval starttime, endtime;
 	double timediff;
+	*/
 
 	// process three inputs from the user by the flag given
 	int option;
@@ -195,11 +197,13 @@ int main(int argc, char *argv[]) {
 	char *input_file;
 	char *output_file;
 
+	/*
 	// start timing
 	if ((gettimeofday(&starttime, NULL)) == -1) {
 		perror("gettimeofday");
 		exit(1);
 	}
+	*/
 	
 	// code you want to time
 	while ((option = getopt(argc, argv, "n:f:o:")) != -1) {
@@ -228,6 +232,7 @@ int main(int argc, char *argv[]) {
 	// call divide_task for regulating children and parent process
 	divide_task(input_file, output_file, child_num);
 	
+	/*
 	// end timing
 	if ((gettimeofday(&endtime, NULL)) == -1) {
 		perror("gettimeofday");
@@ -238,6 +243,7 @@ int main(int argc, char *argv[]) {
 	timediff = (endtime.tv_sec - starttime.tv_sec) +
 		(endtime.tv_usec - starttime.tv_usec) / 1000000.0;
 	fprintf(stdout, "%.4f\n", timediff);
+	*/
 
 	return 0;
 }
