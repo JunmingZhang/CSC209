@@ -73,8 +73,12 @@ void free_fd(int** pipe_fd, int child_num) {
 
 /* call wait for each child process in the parent process */
 void call_wait(int child_num) {
+    int status;
+
     for (int num_process = 0; num_process < child_num; num_process++) {
-        if (wait(NULL) == -1) {
+        if (wait(&status) == -1) {
+            fprintf(stderr, "Child terminated abnormally\n");
+        } else if (WIFSIGNALED(status)) {
             fprintf(stderr, "Child terminated abnormally\n");
         }
     }
