@@ -221,7 +221,7 @@ int main(int argc, char *argv[]) {
 
 	// terminate the program if the number of child processes provided is at most 0
 	if (child_num <= 0) {
-		fprintf(stderr, "arithmetic error, there is at least one child");
+		fprintf(stderr, "arithmetic error, there is at least one child\n");
 		exit(0);
 	}
 
