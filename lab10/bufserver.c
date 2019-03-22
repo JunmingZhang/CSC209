@@ -91,7 +91,7 @@ int main() {
  */
 int find_network_newline(const char *buf, int n) {
     for (int i = 0; i < n; i++) {
-        if (buf[i] == '\n') {
+        if (buf[i] == '\n' && i > 0 && buf[i - 1] == '\r') {
             return 1 + i;
         }
     }
