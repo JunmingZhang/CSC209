@@ -45,8 +45,21 @@ int accept_connection(int fd, struct sockname *usernames) {
         exit(1);
     }
 
+    char username_buf[BUF_SIZE + 1];
+    int num_read;
+    if ((num_read = read(client_fd, &username_buf, BUF_SIZE)) == -1) {
+        perror("server: read username");
+        exit(1);
+    }
+    username_buf[num_read] = '\0';
+
     usernames[user_index].sock_fd = client_fd;
-    usernames[user_index].username = NULL;
+    if ((usernames[user_index].username = malloc(strlen(username_buf) * sizeof(char))) == NULL) {
+        perror("malloc at server");
+        exit(1);
+    }
+
+    strcpy(usernames[user_index].username, username_buf);
     return client_fd;
 }
 
@@ -58,11 +71,23 @@ int read_from(int client_index, struct sockname *usernames) {
     int fd = usernames[client_index].sock_fd;
     char buf[BUF_SIZE + 1];
 
+    char msg[BUF_SIZE + 1];
+    strncpy(msg, usernames[client_index].username, BUF_SIZE);
+    strncat(msg, ":", sizeof(msg) - strlen(msg) - 1);
+    msg[BUF_SIZE] = '\0';
+
     int num_read = read(fd, &buf, BUF_SIZE);
     buf[num_read] = '\0';
-    if (num_read == 0 || write(fd, buf, strlen(buf)) != strlen(buf)) {
-        usernames[client_index].sock_fd = -1;
-        return fd;
+
+    strncat(msg, buf, sizeof(msg) - strlen(msg) - 1);
+
+    for (int i = 0; i < MAX_CONNECTIONS; i++) {
+        if (usernames[i].username) {
+            if (num_read == 0 || write(usernames[i].sock_fd, msg, strlen(msg)) != strlen(msg)) {
+                usernames[client_index].sock_fd = -1;
+                return fd;
+            }
+        }
     }
 
     return 0;
@@ -140,6 +165,7 @@ int main(void) {
                 // Note: never reduces max_fd
                 int client_closed = read_from(index, usernames);
                 if (client_closed > 0) {
+                    free(usernames[index].username);
                     FD_CLR(client_closed, &all_fds);
                     printf("Client %d disconnected\n", client_closed);
                 } else {
