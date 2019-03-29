@@ -73,10 +73,10 @@ int read_from(int client_index, struct sockname *usernames) {
     int fd = usernames[client_index].sock_fd;
     char buf[BUF_SIZE + 1];
 
-    // make message prefixed with username:
+    // make message prefixed with "username: "
     char msg[BUF_SIZE + 1];
     strncpy(msg, usernames[client_index].username, BUF_SIZE);
-    strncat(msg, ":", sizeof(msg) - strlen(msg) - 1);
+    strncat(msg, ": ", sizeof(msg) - strlen(msg) - 1);
     msg[BUF_SIZE] = '\0';
 
     int num_read = read(fd, &buf, BUF_SIZE);
