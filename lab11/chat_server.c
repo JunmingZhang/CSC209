@@ -45,6 +45,8 @@ int accept_connection(int fd, struct sockname *usernames) {
         exit(1);
     }
 
+    // once get connected, read the username from client and set the username
+    // to the struct
     char username_buf[BUF_SIZE + 1];
     int num_read;
     if ((num_read = read(client_fd, &username_buf, BUF_SIZE)) == -1) {
@@ -71,6 +73,7 @@ int read_from(int client_index, struct sockname *usernames) {
     int fd = usernames[client_index].sock_fd;
     char buf[BUF_SIZE + 1];
 
+    // make message prefixed with username:
     char msg[BUF_SIZE + 1];
     strncpy(msg, usernames[client_index].username, BUF_SIZE);
     strncat(msg, ":", sizeof(msg) - strlen(msg) - 1);
@@ -81,6 +84,7 @@ int read_from(int client_index, struct sockname *usernames) {
 
     strncat(msg, buf, sizeof(msg) - strlen(msg) - 1);
 
+    // broadcast the message to all users connected
     for (int i = 0; i < MAX_CONNECTIONS; i++) {
         if (usernames[i].username) {
             if (num_read == 0 || write(usernames[i].sock_fd, msg, strlen(msg)) != strlen(msg)) {

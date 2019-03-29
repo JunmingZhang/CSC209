@@ -37,6 +37,7 @@ int main(void) {
         exit(1);
     }
 
+    // get the username
     char username_buf[BUF_SIZE + 1];
     
     printf("Please enter your username: \n");
@@ -61,6 +62,8 @@ int main(void) {
         exit(1);
     }
 
+    // use for selecting, point max_fd to sock_fd
+    // stdin/out is also a fd, can be added to FD_SET
     int max_fd = sock_fd;
     fd_set all_fds;
     FD_ZERO(&all_fds);
@@ -72,13 +75,18 @@ int main(void) {
     char buf[BUF_SIZE + 1];
     while (1) {
 
+        // use for updating all_fds in a loop
+        // all_fds must be updated in a loop
         fd_set listen_fds = all_fds;
+        
+        // select the file descriptor to operator
         int nready = select(max_fd + 1, &listen_fds, NULL, NULL, NULL);
         if (nready == -1) {
             perror("client: select");
             exit(1);
         }
 
+        // if stdin is selected, send message to server
         if (FD_ISSET(STDIN_FILENO, &listen_fds)) {
             int num_read = read(STDIN_FILENO, buf, BUF_SIZE);
             if (num_read == 0) {
@@ -94,6 +102,7 @@ int main(void) {
             }
         }
         
+        // if sock_fd is selected, receive message from server
         if (FD_ISSET(sock_fd, &listen_fds)) {
             int num_read = read(sock_fd, buf, BUF_SIZE);
             if (num_read == 0) {
