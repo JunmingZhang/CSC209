@@ -64,6 +64,11 @@ int main(void) {
 
     // use for selecting, point max_fd to sock_fd
     // stdin/out is also a fd, can be added to FD_SET
+
+    // file descriptor tips:
+    // STDIN_FILENO: 0
+    // STDOUT_FILENO: 1
+    // STDERR_FILENO: 2
     int max_fd = sock_fd;
     fd_set all_fds;
     FD_ZERO(&all_fds);
