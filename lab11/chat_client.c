@@ -47,11 +47,12 @@ int main(void) {
         exit(1);
     }
 
+
     for(int username_newline = 0; username_newline < BUF_SIZE + 1; username_newline++) {
-        if (username_buf[username_newline] == '\n') {
+        if (username_buf[username_newline] == '\n' || username_newline == BUF_SIZE) {
             username_buf[username_newline] = '\0';
             break;
-        }
+        } 
     }
 
     if ((write(sock_fd, username_buf, num_name_read)) != num_name_read) {
@@ -95,6 +96,9 @@ int main(void) {
         
         if (FD_ISSET(sock_fd, &listen_fds)) {
             int num_read = read(sock_fd, buf, BUF_SIZE);
+            if (num_read == 0) {
+                break;
+            }
             buf[num_read] = '\0';
             printf("Received from server: %s", buf);
         }
