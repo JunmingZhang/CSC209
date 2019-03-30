@@ -155,7 +155,7 @@ int main(int argc, char **argv) {
             char *greeting = WELCOME_MSG;
             if(write(clientfd, greeting, strlen(greeting)) == -1) {
                 fprintf(stderr, "Write to client %s failed\n", inet_ntoa(q.sin_addr));
-                remove_player(&(game.head), p->fd);
+                remove_player(&new_players, p->fd);
             };
         }
         
