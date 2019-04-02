@@ -112,10 +112,11 @@ char *read_msg(int fd, struct client *player) {
         free(return_buf);
         return NULL;
     }
-    printf("[%d] Found newline %s\n", fd, buf);
 
     int where = find_network_line(buf, MAX_BUF);
     buf[where - 2] = '\0';
+
+    printf("[%d] Found newline %s\n", fd, buf);
 
     strncpy(return_buf, buf, MAX_BUF);
     return return_buf;
