@@ -90,7 +90,7 @@ int find_network_line(char* buf, int length) {
     return -1;
 }
 
-char *read_msg(int fd) {
+char *read_msg(int fd, struct client *player) {
     char buf[MAX_BUF] = {'\0'};
     char* return_buf = malloc(sizeof(char) * MAX_BUF);
 
@@ -105,11 +105,17 @@ char *read_msg(int fd) {
         exit(1);
     }
 
+    printf("[%d] Read %d bytes\n", fd, nbytes);
+    if (nbytes == 0) {
+        printf("Disconnect from %s\n", inet_ntoa(player->ipaddr));
+        remove_player(&player, fd);
+        free(return_buf);
+        return NULL;
+    }
+    printf("[%d] Found newline %s\n", fd, buf);
+
     int where = find_network_line(buf, MAX_BUF);
     buf[where - 2] = '\0';
-
-    printf("[%d] Read %d bytes\n", fd, nbytes);
-    printf("[%d] Found newline %s\n", fd, buf);
 
     strncpy(return_buf, buf, MAX_BUF);
     return return_buf;
@@ -481,7 +487,7 @@ int main(int argc, char **argv) {
                 for(p = game.head; p != NULL; p = p->next) {
                     if(cur_fd == p->fd) {
                         //TODO - handle input from an active client
-                        char *content = read_msg(cur_fd);
+                        char *content = read_msg(cur_fd, p);
                         if (strlen(content) == 0) {
                             free(content);
                             continue;
@@ -567,7 +573,7 @@ int main(int argc, char **argv) {
                     if(cur_fd == p->fd) {
                         // TODO - handle input from an new client who has
                         // not entered an acceptable name.
-                        char *name = read_msg(cur_fd);
+                        char *name = read_msg(cur_fd, p);
                         int check_ret = name_check(name, game.head, cur_fd);
 
                         if (check_ret == 1) {
