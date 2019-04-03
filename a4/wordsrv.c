@@ -43,15 +43,19 @@ int find_network_line(char* buf, int length);
 char *read_msg(int fd, struct client **player);
 void announce_exit(char* name, struct game_state *game);
 void broadcasting(char* msg, struct client **game_head, struct game_state *game);
+
 struct client** process_exit(struct game_state *game, struct client **curr, struct client** player_list, int from_new);
 void take_turn(struct game_state *game);
+int is_turn(struct client *turn, struct client *player)
 int is_valid(char* input);
 char *is_win(char* sol, char guess);
+
 int is_guessed(int* guessed, char guess);
 void announce_guessed(struct game_state *game, char guess);
 void announce_state(struct game_state *game);
 void announce_next_turn(struct game_state *game, struct client** player_list);
 void inform_new(struct game_state *game, struct client** player_list);
+
 void reveal(struct game_state *game, char guess);
 void add_guesses_left(struct game_state *game, char guess);
 void announce_win(struct game_state *game, struct client **player_list);
@@ -284,6 +288,10 @@ void take_turn(struct game_state *game) {
     }
 }
 
+int is_turn(struct client *turn, struct client *player) {
+    return strcmp(turn->name, player->name);
+}
+
 int is_valid(char* input) {
     if (strlen(input) > 1) {
         return 1;
@@ -355,7 +363,7 @@ void announce_next_turn(struct game_state *game, struct client** player_list) {
 
     struct client* curr = head;
     while (curr) {
-        if (strcmp(curr->name, turn->name) == 0) {
+        if (is_turn(turn, curr) == 0) {
             if (write(curr->fd, my_msg, strlen(my_msg)) == -1) {
                 curr = *(process_exit(game, &curr, player_list, 0));
             }
@@ -421,7 +429,7 @@ void announce_win(struct game_state *game, struct client **player_list) {
             curr = *(process_exit(game, &curr, player_list, 0));
         }
 
-        if (strcmp(curr->name, turn->name) == 0) {
+        if (is_turn(turn, curr) == 0) {
             if (write(curr->fd, winner_msg, strlen(winner_msg)) == -1) {
                 curr = *(process_exit(game, &curr, player_list, 0));
             }
@@ -575,7 +583,7 @@ int main(int argc, char **argv) {
                             continue;
                         }
 
-                        if (strcmp(game.has_next_turn->name, p->name) == 0) {
+                        if (is_turn(game.has_next_turn, p) == 0) {
                             if (is_valid(content) == 0) {
                                 if (is_guessed(game.letters_guessed, *content)) {
                                     printf("Answer %c has been guessed!\n", *content);
