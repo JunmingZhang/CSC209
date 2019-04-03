@@ -36,6 +36,9 @@ void announce_winner(struct game_state *game, struct client *winner);
 /* Move the has_next_turn pointer to the next active client */
 void advance_turn(struct game_state *game);
 
+struct client** process_exit(struct game_state *game, struct client **curr, struct client** player_list, int from_new);
+void take_turn(struct game_state *game);
+
 
 /* The set of socket descriptors for select to monitor.
  * This is a global variable because we need to remove socket descriptors
@@ -48,7 +51,6 @@ int name_check(char* name, struct client *player_list, int cur_fd) {
         free(name);
         char msg[] = "Your name is too long\r\n";
         if(write(cur_fd, msg, sizeof(msg)) == -1) {
-            printf("User %d has disconnected\n", cur_fd);
             return 2;
         }
         return 1;
@@ -58,7 +60,6 @@ int name_check(char* name, struct client *player_list, int cur_fd) {
         free(name);
         char msg[] = "Your name should not be empty\r\n";
         if(write(cur_fd, msg, sizeof(msg)) == -1) {
-            printf("User %d has disconnected\n", cur_fd);
             return 2;
         }
         return 1;
@@ -68,9 +69,8 @@ int name_check(char* name, struct client *player_list, int cur_fd) {
     for(player = player_list; player != NULL; player = player->next) {
         if (strcmp(player->name, name) == 0) {
             free(name);
-            char msg[] = "This name has been\r\n";
+            char msg[] = "This name has been used\r\n";
             if (write(cur_fd, msg, sizeof(msg)) == -1) {
-                printf("User %d has disconnected\n", cur_fd);
                 return 2;
             }
             return 1;
@@ -90,7 +90,7 @@ int find_network_line(char* buf, int length) {
     return -1;
 }
 
-char *read_msg(int fd, struct client *player) {
+char *read_msg(int fd, struct client **player) {
     char buf[MAX_BUF] = {'\0'};
     char* return_buf = malloc(sizeof(char) * MAX_BUF);
 
@@ -107,8 +107,7 @@ char *read_msg(int fd, struct client *player) {
 
     printf("[%d] Read %d bytes\n", fd, nbytes);
     if (nbytes == 0) {
-        printf("Disconnect from %s\n", inet_ntoa(player->ipaddr));
-        remove_player(&player, fd);
+        printf("Disconnect from %s\n", inet_ntoa((*player)->ipaddr));
         free(return_buf);
         return NULL;
     }
@@ -122,31 +121,89 @@ char *read_msg(int fd, struct client *player) {
     return return_buf;
 }
 
-void announce_exit(char* name, struct client **game_head) {
+void announce_exit(char* name, struct game_state *game) {
     char msg[MAX_BUF];
-    sprintf(msg, "Good bye %s", name);
+    sprintf(msg, "Good bye %s\r\n", name);
+    struct client** game_head = &(game->head);
+
     struct client **curr = game_head;
 
     while (*curr) {
         if (write((*curr)->fd, msg, strlen(msg)) == -1) {
-            perror("write at anounce_exit");
-            exit(1);
+            curr = process_exit(game, curr, game_head, 0);
         }
         curr = &((*curr)->next);
     }
 }
 
-void broadcasting(char* msg, struct client **game_head) {
+void broadcasting(char* msg, struct client **game_head, struct game_state *game) {
     struct client **curr = game_head;
 
     while (*curr) {
         if (write((*curr)->fd, msg, strlen(msg)) == -1) {
-            printf("%s has left\n", (*curr)->name);
-            remove_player(game_head, (*curr)->fd);
-            announce_exit((*curr)->name, game_head);
+            curr = process_exit(game, curr, game_head, 0);
         }
         curr = &((*curr)->next);
     }
+}
+
+struct client** process_exit(struct game_state *game, struct client **curr, struct client** player_list, int from_new) {
+    struct client del_temp;
+    struct client *del_temp_ptr = &del_temp;
+    struct client **del_ptr_ptr = &del_temp_ptr;
+
+    char *name = malloc(sizeof(char) * strlen((*curr)->name));
+    if (!name) {
+        perror("malloct at process exit");
+        exit(1);
+    }
+
+    strncpy(name, (*curr)->name, strlen((*curr)->name));
+
+    del_temp_ptr->next = (*curr)->next;
+
+    if (from_new == 1) {
+        printf("%d has disconnected\n", (*curr)->fd);
+        remove_player(player_list, (*curr)->fd);
+    }
+
+    if (from_new == 0) {
+        int single = 0;
+
+        char head_name[MAX_NAME];
+        strncpy(head_name, game->head->name, strlen(game->head->name));
+
+        char turn_name[MAX_NAME];
+        strncpy(turn_name, game->has_next_turn->name, strlen(game->has_next_turn->name));
+
+        struct client *head_next = game->head->next;
+
+        if (strcmp(name, turn_name) == 0) {
+            take_turn(game);
+        }
+
+        if (game->has_next_turn->next == NULL && game->head->next == NULL) {
+            single = 1;
+        }
+
+        remove_player(&(game->head), (*curr)->fd);
+
+        if (strcmp(head_name, name) == 0) {
+            game->head = head_next;
+        }
+
+        if (single == 1) {
+            game->head = NULL;
+            game->has_next_turn = NULL;
+        }
+
+        printf("%s has left!\n", name);
+
+        announce_exit(name, game);
+    }
+
+    free(name);
+    return del_ptr_ptr;
 }
 
 /* Add a client to the head of the linked list
@@ -196,10 +253,6 @@ void remove_player(struct client **top, int fd) {
 void take_turn(struct game_state *game) {
     if (!game->has_next_turn->next) {
         game->has_next_turn = game->head;
-    } else if ((game->has_next_turn)->fd == -1) {
-        while (game->has_next_turn && (game->has_next_turn)->fd == -1) {
-            game->has_next_turn = (game->has_next_turn)->next;
-        }
     } else {
         game->has_next_turn = (game->has_next_turn)->next;
     }
@@ -245,11 +298,11 @@ void announce_guessed(struct game_state *game, char guess) {
 
     sprintf(msg, "%s guesses: %c\r\n", turn->name, guess);
 
-    broadcasting(msg, &head);
+    broadcasting(msg, &head, game);
     free(msg);
 }
 
-void announce_state(struct game_state *game) {
+void announce_state(struct game_state *game, struct client** player_list) {
     struct client *head = game->head;
 
     char *update_msg = malloc(sizeof(char) * MAX_BUF);
@@ -260,11 +313,11 @@ void announce_state(struct game_state *game) {
 
     char *msg = status_message(update_msg, game);
     
-    broadcasting(msg, &head);
+    broadcasting(msg, &head, game);
     free(msg);
 }
 
-void announce_turn(struct game_state *game) {
+void announce_next_turn(struct game_state *game, struct client** player_list) {
     struct client *head = game->head;
     struct client *turn = game->has_next_turn;
 
@@ -278,20 +331,18 @@ void announce_turn(struct game_state *game) {
     while (curr) {
         if (strcmp(curr->name, turn->name) == 0) {
             if (write(curr->fd, my_msg, strlen(my_msg)) == -1) {
-                perror("write at annoucne_turn\n");
-                exit(1);
+                curr = *(process_exit(game, &curr, player_list, 0));
             }
         } else {
             if (write(curr->fd, others_msg, strlen(others_msg)) == -1) {
-                perror("write at annoucne_turn\n");
-                exit(1);
+                curr = *(process_exit(game, &curr, player_list, 0));
             }
         }
         curr = curr->next;
     }
 }
 
-void inform_new(struct game_state *game) {
+void inform_new(struct game_state *game, struct client** player_list) {
     struct client *new = game->head;
 
     char *update_msg = malloc(sizeof(char) * MAX_BUF);
@@ -302,8 +353,7 @@ void inform_new(struct game_state *game) {
 
     char *state_msg = status_message(update_msg, game);
     if (write(new->fd, state_msg, strlen(state_msg)) == -1) {
-        perror("write at inform_new\n");
-        exit(1);
+        game->head = (*(process_exit(game, &new, player_list, 0)))->next;
     }
     free(state_msg);
 }
@@ -326,7 +376,7 @@ void add_guesses_left(struct game_state *game, char guess) {
     }
 }
 
-void announce_win(struct game_state *game) {
+void announce_win(struct game_state *game, struct client **player_list) {
     char winner_msg[MAX_BUF];
     char others_msg[MAX_BUF];
     char all_msg[MAX_BUF];
@@ -342,46 +392,43 @@ void announce_win(struct game_state *game) {
     struct client* curr = game->head;
     while (curr) {
         if (write(curr->fd, all_msg, strlen(all_msg)) == -1) {
-                perror("write at annoucne_win\n");
-                exit(1);
+            curr = *(process_exit(game, &curr, player_list, 0));
         }
 
         if (strcmp(curr->name, turn->name) == 0) {
             if (write(curr->fd, winner_msg, strlen(winner_msg)) == -1) {
-                perror("write at annoucne_win\n");
-                exit(1);
+                curr = *(process_exit(game, &curr, player_list, 0));
             }
         } else {
             if (write(curr->fd, others_msg, strlen(others_msg)) == -1) {
-                perror("write at annoucne_win\n");
-                exit(1);
+                curr = *(process_exit(game, &curr, player_list, 0));
             }
         }
         curr = curr->next;
     }
 }
 
-void announce_fail(struct game_state *game) {
+void announce_fail(struct game_state *game, struct client **player_list) {
     char* msg = malloc(sizeof(char) * MAX_BUF);
     if (msg == NULL) {
         perror("malloc at announce fail\n");
         exit(1);
     }
     sprintf(msg, "No more guesses.  The word was %s\r\n", game->word);
-    broadcasting(msg, &(game->head));
+    broadcasting(msg, &(game->head), game);
     printf("Evaluating for game_over\n");
 
     free(msg);
 }
 
-void restart(struct game_state *game, char* dict_name) {
+void restart(struct game_state *game, struct client **player_list, char* dict_name) {
     char* msg = malloc(sizeof(char) * MAX_BUF);
     if (msg == NULL) {
         perror("malloc at announce restart\n");
         exit(1);
     }
     sprintf(msg, "\r\nLet's start a new game.\r\n");
-    broadcasting(msg, &(game->head));
+    broadcasting(msg, &(game->head), game);
     free(msg);
 
     init_game(game, dict_name);
@@ -389,8 +436,8 @@ void restart(struct game_state *game, char* dict_name) {
     printf("New game\n");
     printf("It's %s's turn.\n", game->has_next_turn->name);
 
-    announce_state(game);
-    announce_turn(game);
+    announce_state(game, player_list);
+    announce_next_turn(game, player_list);
 }
 
 int main(int argc, char **argv) {
@@ -488,7 +535,14 @@ int main(int argc, char **argv) {
                 for(p = game.head; p != NULL; p = p->next) {
                     if(cur_fd == p->fd) {
                         //TODO - handle input from an active client
-                        char *content = read_msg(cur_fd, p);
+                        char *content = read_msg(cur_fd, &(game.head));
+
+                        if (content == NULL) {
+                            struct client **del_ptr = process_exit(&game, &p, &(game.head), 0);
+                            p = *del_ptr;             
+                            continue;
+                        }
+
                         if (strlen(content) == 0) {
                             free(content);
                             continue;
@@ -498,72 +552,77 @@ int main(int argc, char **argv) {
                             if (is_valid(content) == 0) {
                                 if (is_guessed(game.letters_guessed, *content)) {
                                     char msg[] = "This answer has been guessed!\r\n";
-                                    if (write(cur_fd, msg, strlen(msg)) == -1) {
-                                        fprintf(stderr, "Fail to tell %s he guessed an existed guess\n",  p->name);
-                                        remove_player(&(game.head), p->fd);
+
+                                    if (write(cur_fd, msg, strlen(msg)) == -1) {                                      
+                                        p = *(process_exit(&game, &p, &(game.head), 0));
+                                        free(content);
+                                        continue;
                                     }
 
                                     char another_msg[] = "Your guess?\r\n";
                                     if (write(cur_fd, another_msg, strlen(another_msg)) == -1) {
-                                        fprintf(stderr, "Fail to tell %s he to make a guess\n",  p->name);
-                                        remove_player(&(game.head), p->fd);
+                                        p = *(process_exit(&game, &p, &(game.head), 0));
+                                        free(content);
+                                        continue;
                                     }
                                 } else if (is_win(game.word, *content)) {
                                     reveal(&game, *content);
+
                                     if (strcmp(game.word, game.guess) == 0) {
-                                        announce_win(&game);
-                                        restart(&game, argv[1]);
-                                        continue;
+                                        announce_win(&game, &(game.head));
+                                        restart(&game, &(game.head), argv[1]);
                                     }
                                     add_guesses_left(&game, *content);
 
                                     announce_guessed(&game, *content);
-                                    announce_state(&game);
-                                    announce_turn(&game);
+                                    announce_state(&game, &(game.head));
+                                    announce_next_turn(&game, &(game.head));
                                 } else {                                   
                                     char msg[MAX_BUF];
                                     sprintf(msg, "%c is not in the word\r\n", *content);
                                     if (write(cur_fd, msg, strlen(msg)) == -1) {
-                                        fprintf(stderr, "Fail to tell %s it is not his turn\n",  p->name);
-                                        remove_player(&(game.head), p->fd);
+                                        p = *(process_exit(&game, &p, &(game.head), 0));
+                                        free(content);
+                                        continue;
                                     }
                                     printf("%c is not in the word\n", *content);
 
                                     take_turn(&game);
                                     game.guesses_left--;
                                     if (game.guesses_left == 0) {
-                                        announce_fail(&game);
-                                        restart(&game, argv[1]);
-                                        continue;
+                                        announce_fail(&game, &(game.head));
+                                        restart(&game, &(game.head), argv[1]);
                                     }
                                     add_guesses_left(&game, *content);
                                     
                                     announce_guessed(&game, *content);
-                                    announce_state(&game);
-                                    announce_turn(&game);
+                                    announce_state(&game, &(game.head));
+                                    announce_next_turn(&game, &(game.head));
                                 }
                             } else {
                                 char msg[] = "One lowercase character only!\r\n";
                                 char another_msg[] = "Your guess?\r\n";
                 
                                 if (write(cur_fd, msg, strlen(msg)) == -1) {
-                                    fprintf(stderr, "Fail to tell %s it is not his turn\n",  p->name);
-                                    remove_player(&(game.head), p->fd);
+                                    p = *(process_exit(&game, &p, &(game.head), 0));
+                                    free(content);
+                                    continue;
                                 }
 
                                 if (write(cur_fd, another_msg, strlen(another_msg)) == -1) {
-                                    fprintf(stderr, "Fail to tell %s to make a guess\n",  p->name);
-                                    remove_player(&(game.head), p->fd);
+                                    p = *(process_exit(&game, &p, &(game.head), 0));
+                                    free(content);
+                                    continue;
                                 }
                             }
                         } else {
                             char msg[] = "It is not your turn to guess.\r\n";
                             if (write(cur_fd, msg, strlen(msg)) == -1) {
-                                fprintf(stderr, "Fail to tell %s it is not his turn\n",  p->name);
-                                remove_player(&(game.head), p->fd);
+                                p = *(process_exit(&game, &p, &(game.head), 0));
+                                free(content);
+                                continue;
                             }
-                        }
-                        printf("It's %s's turn.\n", game.has_next_turn->name);                       
+                        }                     
                         free(content);
                     }
                 }
@@ -574,13 +633,21 @@ int main(int argc, char **argv) {
                     if(cur_fd == p->fd) {
                         // TODO - handle input from an new client who has
                         // not entered an acceptable name.
-                        char *name = read_msg(cur_fd, p);
+
+                        char *name = read_msg(cur_fd, &(new_players));
+                        if (name == NULL) {
+                            p = *(process_exit(&game, &p, &new_players, 1));
+                            continue;
+                        }
+
                         int check_ret = name_check(name, game.head, cur_fd);
 
                         if (check_ret == 1) {
                              continue;
                         } else if (check_ret == 2) {
-                            remove_player(&new_players, cur_fd);
+                            p = *(process_exit(&game, &p, &new_players, 1));
+                            free(name);
+                            continue;
                         } else {
                             struct client temp;
                             (&temp)->next = p->next;
@@ -604,17 +671,18 @@ int main(int argc, char **argv) {
 
                             printf("%s has just joined.\n", game.head->name);
                             sprintf(msg, "%s has just joined.\r\n", game.head->name);
-                            broadcasting(msg, &(game.head));
+                            broadcasting(msg, &(game.head), &(game));
 
                             if (!game.has_next_turn) {
                                 game.has_next_turn = game.head;
 
-                                announce_state(&game);
-                                announce_turn(&game);
+                                announce_state(&game, &(game.head));
+                                announce_next_turn(&game, &(game.head));
                             } else {
-                                inform_new(&game);
-                                announce_turn(&game);
+                                inform_new(&game, &(game.head));
+                                announce_next_turn(&game, &(game.head));
                             }
+                            
                             printf("It's %s's turn.\n", game.has_next_turn->name);
                             free(msg);
                         }
