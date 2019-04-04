@@ -39,8 +39,8 @@ void advance_turn(struct game_state *game);
 
 /* my own helpers */
 int name_check(char* name, struct client *player_list, int cur_fd);
-int find_network_line(char* buf, int length);
-char *read_msg(int fd, struct client **player);
+int find_network_line(char* buf, int length); // from lab 10
+char *read_msg(int fd, struct client **player); // from lab 10
 void announce_exit(char* name, struct game_state *game);
 void broadcasting(char* msg, struct client **game_head, struct game_state *game);
 
@@ -68,30 +68,40 @@ void restart(struct game_state *game, struct client **player_list, char* dict_na
  */
 fd_set allset;
 
+/*
+ * check whether the name given is valid
+ * return 0, the name is valid
+ * return 1, the name is invalid
+ * return 2, the user in the player_list loses connection (write returns -1)
+ */
 int name_check(char* name, struct client *player_list, int cur_fd) {
+    // the name is invalid if it is too long
     if (strlen(name) > MAX_NAME) {
         printf("Name %s is too long\n", name);
         free(name);
 
         char msg[] = "Your name is too long\r\nPlese change a new name:\r\n";
-        if(write(cur_fd, msg, sizeof(msg)) == -1) {
+        if (write(cur_fd, msg, sizeof(msg)) == -1) {
             return 2;
         }
         return 1;
     }
 
+    // the name is invalid if it is an empty string
     if (strcmp(name, "") == 0) {
         printf("Provided name is empty\n");
         free(name);
 
         char msg[] = "Your name should not be empty\r\nPlese change a new name:\r\n";
-        if(write(cur_fd, msg, sizeof(msg)) == -1) {
+        if (write(cur_fd, msg, sizeof(msg)) == -1) {
             return 2;
         }
         return 1;
     }
+
+    // check all names in current players
+    // the name is invalid if it is used by some player in the game
     struct client *player;
-    
     for(player = player_list; player != NULL; player = player->next) {
         if (strcmp(player->name, name) == 0) {
             printf("Name %s is has been used\n", name);
@@ -108,6 +118,7 @@ int name_check(char* name, struct client *player_list, int cur_fd) {
     return 0;
 }
 
+/* find the index of "/r/n" in the given string from network (from lab 10) */
 int find_network_line(char* buf, int length) {
     for (int ind = 0; ind < length; ind++) {
         if (buf[ind] == '\n' && buf[ind - 1] == '\r') {
@@ -118,7 +129,14 @@ int find_network_line(char* buf, int length) {
     return -1;
 }
 
+/*
+ * read messages from the given message read from network
+ * and return the message by cancelling off "\r\n" or NULL
+ * if there is a disconnection (read 0 bytes from the file descriptor)
+ */
 char *read_msg(int fd, struct client **player) {
+    // initialize the buf to accept the message and
+    // malloc space for the message to be returned
     char buf[MAX_BUF] = {'\0'};
     char* return_buf = malloc(sizeof(char) * MAX_BUF);
 
@@ -134,12 +152,14 @@ char *read_msg(int fd, struct client **player) {
     }
 
     printf("[%d] Read %d bytes\n", fd, nbytes);
+    // if 0 bytes are read out, then someone loses the connection
     if (nbytes == 0) {
         printf("Disconnect from %s\n", inet_ntoa((*player)->ipaddr));
         free(return_buf);
         return NULL;
     }
 
+    // cancel off "\r\n", network newline
     int where = find_network_line(buf, MAX_BUF);
     buf[where - 2] = '\0';
 
@@ -149,21 +169,21 @@ char *read_msg(int fd, struct client **player) {
     return return_buf;
 }
 
+/* announce to all players in the game that someone has exited */
 void announce_exit(char* name, struct game_state *game) {
-    char msg[MAX_BUF];
-    sprintf(msg, "Good bye %s\r\n", name);
-    struct client** game_head = &(game->head);
-
-    struct client **curr = game_head;
-
-    while (*curr) {
-        if (write((*curr)->fd, msg, strlen(msg)) == -1) {
-            curr = process_exit(game, curr, game_head, 0);
-        }
-        curr = &((*curr)->next);
+    char* msg = malloc(sizeof(char) * MAX_BUF);
+    if (!msg) {
+        perror("malloc at announce_exit\n");
+        exit(1);
     }
+
+    sprintf(msg, "Good bye %s\r\n", name);
+
+    broadcasting(msg, &(game->head), game);
+    free(msg);
 }
 
+/* broadcast the given message to all players */
 void broadcasting(char* msg, struct client **game_head, struct game_state *game) {
     struct client **curr = game_head;
 
@@ -175,12 +195,26 @@ void broadcasting(char* msg, struct client **game_head, struct game_state *game)
     }
 }
 
+/*
+ * process all cases of disconnection,
+ * include disconnection during reading and writing,
+ * and disconnection of the client from new_list or players in the game
+ * curr -> pointer to the client loses connection
+ * player_list -> new_list or game.head (players in the game)
+ * from_new = 0 -> from game.head; from_new = 1 -> from new_players
+ * return the pointer to the struct which holds the next client of
+ * the disconnected client
+ */
 struct client** process_exit(struct game_state *game, struct client **curr, struct client** player_list, int from_new) {
+    // struct pointer used to store the pointer to the next client of the
+    // client who has lost the connection, use this pointer, the loop in the main
+    // block can work normally
     struct client del_temp;
     struct client *del_temp_ptr = &del_temp;
     struct client **del_ptr_ptr = &del_temp_ptr;
 
-    char *name = malloc(sizeof(char) * strlen((*curr)->name));
+   // get the name of the disconnected client
+   char *name = malloc(sizeof(char) * strlen((*curr)->name));
     if (!name) {
         perror("malloct at process exit");
         exit(1);
@@ -188,19 +222,23 @@ struct client** process_exit(struct game_state *game, struct client **curr, stru
 
     strncpy(name, (*curr)->name, strlen((*curr)->name));
 
+    // store the next pointer of the disconnected client to the del_tem pointer
     del_temp_ptr->next = (*curr)->next;
 
+    // if the player is from new_list, print the folloing info
+    // and remove him from the new_players
     if (from_new == 1) {
         printf("%d has disconnected\n", (*curr)->fd);
         remove_player(player_list, (*curr)->fd);
     }
 
+    // if the player is in the game
     if (from_new == 0) {
-        int single = 0;
-
+        // find and copy the name of the head of the clients in the game->head
         char head_name[MAX_NAME];
         strncpy(head_name, game->head->name, strlen(game->head->name));
 
+        // find and copy the name of the client of the turn
         char turn_name[MAX_NAME];
         strncpy(turn_name, game->has_next_turn->name, strlen(game->has_next_turn->name));
 
@@ -210,9 +248,8 @@ struct client** process_exit(struct game_state *game, struct client **curr, stru
             take_turn(game);
         }
 
-        if (game->has_next_turn->next == NULL && game->head->next == NULL) {
-            single = 1;
-        }
+        // check if there is only one player in the game
+        int single = (game->has_next_turn->next == NULL && game->head->next == NULL);
 
         remove_player(&(game->head), (*curr)->fd);
 
