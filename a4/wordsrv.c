@@ -104,7 +104,7 @@ int name_check(char* name, struct client *player_list, int cur_fd) {
     struct client *player;
     for(player = player_list; player != NULL; player = player->next) {
         if (strcmp(player->name, name) == 0) {
-            printf("\nName %s is has been used\n", name);
+            printf("Name %s is has been used\n", name);
             free(name);
 
             char msg[] = "\r\nThis name has been used\r\nPlese change a new name:\r\n";
@@ -246,12 +246,14 @@ struct client** process_exit(struct game_state *game, struct client **curr, stru
     // if the player is in the game
     if (from_new == 0) {
         // find and copy the name of the head of the clients in the game->head
-        char head_name[MAX_NAME];
+        char head_name[MAX_NAME + 1];
         strncpy(head_name, game->head->name, strlen(game->head->name));
+        head_name[MAX_NAME] = '\0';
 
         // find and copy the name of the client of the turn
-        char turn_name[MAX_NAME];
+        char turn_name[MAX_NAME + 1];
         strncpy(turn_name, game->has_next_turn->name, strlen(game->has_next_turn->name));
+        turn_name[MAX_NAME] = '\0';
 
         // store the next player of the head to the pointer head_next
         struct client *head_next = game->head->next;
