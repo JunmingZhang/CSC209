@@ -46,7 +46,7 @@ void broadcasting(char* msg, struct client **game_head, struct game_state *game)
 
 struct client** process_exit(struct game_state *game, struct client **curr, struct client** player_list, int from_new);
 void take_turn(struct game_state *game);
-int is_turn(struct client *turn, struct client *player)
+int is_turn(struct client *turn, struct client *player);
 int is_valid(char* input);
 char *is_win(char* sol, char guess);
 
