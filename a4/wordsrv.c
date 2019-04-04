@@ -223,8 +223,8 @@ struct client** process_exit(struct game_state *game, struct client **curr, stru
     struct client *del_temp_ptr = &del_temp;
     struct client **del_ptr_ptr = &del_temp_ptr;
 
-   // get the name of the disconnected client
-   char *name = malloc(sizeof(char) * (MAX_NAME + 1));
+    // get the name of the disconnected client
+    char *name = malloc(sizeof(char) * (MAX_NAME + 1));
     if (!name) {
         perror("malloct at process exit");
         exit(1);
