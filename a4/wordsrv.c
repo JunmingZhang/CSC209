@@ -89,7 +89,7 @@ int name_check(char* name, struct client *player_list, int cur_fd) {
 
     // the name is invalid if it is an empty string
     if (strcmp(name, "") == 0) {
-        printf("\nProvided name is empty\n");
+        printf("Provided name is empty");
         free(name);
 
         char msg[] = "\r\nYour name should not be empty\r\nPlese change a new name:\r\n";
@@ -224,13 +224,14 @@ struct client** process_exit(struct game_state *game, struct client **curr, stru
     struct client **del_ptr_ptr = &del_temp_ptr;
 
    // get the name of the disconnected client
-   char *name = malloc(sizeof(char) * strlen((*curr)->name));
+   char *name = malloc(sizeof(char) * (MAX_NAME + 1));
     if (!name) {
         perror("malloct at process exit");
         exit(1);
     }
 
     strncpy(name, (*curr)->name, strlen((*curr)->name));
+    name[strlen((*curr)->name)] = '\0';
 
     // store the next pointer of the disconnected client to the del_tem pointer
     del_temp_ptr->next = (*curr)->next;
