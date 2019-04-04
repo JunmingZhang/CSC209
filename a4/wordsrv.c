@@ -77,10 +77,10 @@ fd_set allset;
 int name_check(char* name, struct client *player_list, int cur_fd) {
     // the name is invalid if it is too long
     if (strlen(name) > MAX_NAME) {
-        printf("\nName %s is too long\n", name);
+        printf("Name %s is too long\n", name);
         free(name);
 
-        char msg[] = "Your name is too long\r\nPlese change a new name:\r\n";
+        char msg[] = "\r\nYour name is too long\r\nPlese change a new name:\r\n";
         if (write(cur_fd, msg, sizeof(msg)) == -1) {
             return 2;
         }
@@ -92,7 +92,7 @@ int name_check(char* name, struct client *player_list, int cur_fd) {
         printf("\nProvided name is empty\n");
         free(name);
 
-        char msg[] = "Your name should not be empty\r\nPlese change a new name:\r\n";
+        char msg[] = "\r\nYour name should not be empty\r\nPlese change a new name:\r\n";
         if (write(cur_fd, msg, sizeof(msg)) == -1) {
             return 2;
         }
@@ -107,7 +107,7 @@ int name_check(char* name, struct client *player_list, int cur_fd) {
             printf("\nName %s is has been used\n", name);
             free(name);
 
-            char msg[] = "This name has been used\r\nPlese change a new name:\r\n";
+            char msg[] = "\r\nThis name has been used\r\nPlese change a new name:\r\n";
             if (write(cur_fd, msg, sizeof(msg)) == -1) {
                 return 2;
             }
