@@ -77,7 +77,7 @@ fd_set allset;
 int name_check(char* name, struct client *player_list, int cur_fd) {
     // the name is invalid if it is too long
     if (strlen(name) > MAX_NAME) {
-        printf("Name %s is too long\n", name);
+        printf("\nName %s is too long\n", name);
         free(name);
 
         char msg[] = "Your name is too long\r\nPlese change a new name:\r\n";
@@ -89,7 +89,7 @@ int name_check(char* name, struct client *player_list, int cur_fd) {
 
     // the name is invalid if it is an empty string
     if (strcmp(name, "") == 0) {
-        printf("Provided name is empty\n");
+        printf("\nProvided name is empty\n");
         free(name);
 
         char msg[] = "Your name should not be empty\r\nPlese change a new name:\r\n";
@@ -104,7 +104,7 @@ int name_check(char* name, struct client *player_list, int cur_fd) {
     struct client *player;
     for(player = player_list; player != NULL; player = player->next) {
         if (strcmp(player->name, name) == 0) {
-            printf("Name %s is has been used\n", name);
+            printf("\nName %s is has been used\n", name);
             free(name);
 
             char msg[] = "This name has been used\r\nPlese change a new name:\r\n";
@@ -160,8 +160,17 @@ char *read_msg(int fd, struct client **player) {
     }
 
     // cancel off "\r\n", network newline
+    // or add null terminator to proper location for a partial read
     int where = find_network_line(buf, MAX_BUF);
-    buf[where - 2] = '\0';
+    if (where == -1) {
+        if (strlen(buf) < MAX_BUF) {
+            buf[strlen(buf)] = '\0';
+        } else {
+            buf[MAX_BUF - 1] = '\0';
+        }
+    } else {
+        buf[where - 2] = '\0';
+    }
 
     printf("[%d] Found newline %s\n", fd, buf);
 
@@ -177,7 +186,7 @@ void announce_exit(char* name, struct game_state *game) {
         exit(1);
     }
 
-    sprintf(msg, "Good bye %s\r\n", name);
+    sprintf(msg, "\r\nGood bye %s\r\n", name);
 
     broadcasting(msg, &(game->head), game);
     free(msg);
@@ -397,7 +406,7 @@ void announce_guessed(struct game_state *game, char guess) {
         exit(1);
     }
 
-    sprintf(msg, "%s guesses: %c\r\n", turn->name, guess);
+    sprintf(msg, "\r\n%s guesses: %c\r\n", turn->name, guess);
 
     broadcasting(msg, &head, game);
     free(msg);
@@ -501,8 +510,8 @@ void announce_win(struct game_state *game, struct client **player_list) {
 
     struct client *turn = game->has_next_turn;
 
-    sprintf(winner_msg, "Game over! You win!\r\n");
-    sprintf(others_msg, "Game over! %s won!\r\n", turn->name);
+    sprintf(winner_msg, "\r\nGame over! You win!\r\n");
+    sprintf(others_msg, "\r\nGame over! %s won!\r\n", turn->name);
     sprintf(all_msg, "The word was %s.\r\n", game->word);
 
     printf("Game over! %s won!\n", turn->name);
@@ -536,7 +545,7 @@ void announce_fail(struct game_state *game, struct client **player_list) {
         perror("malloc at announce fail\n");
         exit(1);
     }
-    sprintf(msg, "No more guesses.  The word was %s\r\n", game->word);
+    sprintf(msg, "\r\nNo more guesses.  The word was %s\r\n", game->word);
     broadcasting(msg, &(game->head), game);
     printf("Evaluating for game_over\n");
 
@@ -691,7 +700,7 @@ int main(int argc, char **argv) {
                                     // tell the user if he takes a guess has been made before
                                     // and re-tell him to make a guess
                                     printf("Answer %c has been guessed!\n", *content);
-                                    char msg[] = "This answer has been guessed!\r\n";
+                                    char msg[] = "\r\nThis answer has been guessed!\r\n";
 
                                     if (write(cur_fd, msg, strlen(msg)) == -1) {  // exit if this player disconnects during writing
                                         p = *(process_exit(&game, &p, &(game.head), 0));
@@ -727,7 +736,7 @@ int main(int argc, char **argv) {
                                     } else {
                                         // tell the player the letter is not in the word
                                         char msg[MAX_BUF];
-                                        sprintf(msg, "%c is not in the word\r\n", *content);
+                                        sprintf(msg, "\r\n%c is not in the word\r\n", *content);
                                         if (write(cur_fd, msg, strlen(msg)) == -1) { // exit if this player disconnects during writing
                                             p = *(process_exit(&game, &p, &(game.head), 0));
                                             free(content);
@@ -761,7 +770,7 @@ int main(int argc, char **argv) {
                                 printf("Stop %s from entering the invalid answer, %s\n.", game.has_next_turn->name, content);
 
                                 // write the warning message to the client and request him to make another guess
-                                char msg[] = "One lowercase character only!\r\n";
+                                char msg[] = "\r\nOne lowercase character only!\r\n";
                                 char another_msg[] = "Your guess?\r\n";
                 
                                 if (write(cur_fd, msg, strlen(msg)) == -1) { // exit if this player disconnects during writing
@@ -779,7 +788,7 @@ int main(int argc, char **argv) {
                         } else { // tell the player if he makes an input but does not hold this turn
                             printf("Stop %s from moving in wrong turn.\n", p->name);
 
-                            char msg[] = "It is not your turn to guess.\r\n";
+                            char msg[] = "\r\nIt is not your turn to guess.\r\n";
                             if (write(cur_fd, msg, strlen(msg)) == -1) { // exit if this player disconnects during writing
                                 p = *(process_exit(&game, &p, &(game.head), 0));
                                 free(content);
@@ -844,7 +853,7 @@ int main(int argc, char **argv) {
                             }
 
                             printf("%s has just joined.\n", game.head->name);
-                            sprintf(msg, "%s has just joined.\r\n", game.head->name);
+                            sprintf(msg, "\r\n%s has just joined.\r\n", game.head->name);
                             broadcasting(msg, &(game.head), &(game));
 
                             // if there is no player at now, make the player at the head
