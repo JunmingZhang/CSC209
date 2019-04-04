@@ -798,35 +798,45 @@ int main(int argc, char **argv) {
                         // TODO - handle input from an new client who has
                         // not entered an acceptable name.
 
+                        // read the name from the user
                         char *name = read_msg(cur_fd, &(new_players));
+
+                        // if the user disconnects, process his exit
                         if (name == NULL) {
                             p = *(process_exit(&game, &p, &new_players, 1));
                             continue;
                         }
 
+                        // check if the name is valid and if there is a disconenction
                         int check_ret = name_check(name, game.head, cur_fd);
 
-                        if (check_ret == 1) {
-                             continue;
-                        } else if (check_ret == 2) {
+                        // if the name is invalid (check_ret == 1) just continue to next iteration
+                        if (check_ret == 2) { // if there is a disconnection during name-checking, process the exit
                             p = *(process_exit(&game, &p, &new_players, 1));
                             free(name);
                             continue;
-                        } else {
+                        } else if (check_ret == 0) { // if the name is valid, move p to game player list
+
+                            // store the next struct of p to the pointer next of a temp struct
                             struct client temp;
                             (&temp)->next = p->next;
 
+                            // if prev is not next
                             if (prev) {
-                            prev->next = p->next;
+                                prev->next = p->next; // point the next of prev to p's next
                             } else {
-                                new_players = new_players->next;
+                                new_players = new_players->next; // move the head of new_play to the struct (or NULL) following
                             }
 
+                            // add p to the game player list, and give the user name to p
                             p->next = game.head;
                             game.head = p;
                             strncpy(game.head->name, name, MAX_NAME);
+
+                            // this help the for loop goes normally
                             p = &temp;
 
+                            // tell every one on the game list one new player has joined
                             char* msg = malloc(sizeof(char) * MAX_MSG);
                             if (msg == NULL) {
                                 perror("malloc at processing new_players");
@@ -837,21 +847,21 @@ int main(int argc, char **argv) {
                             sprintf(msg, "%s has just joined.\r\n", game.head->name);
                             broadcasting(msg, &(game.head), &(game));
 
+                            // if there is no player at now, make the player at the head
+                            // hold the turn
                             if (!game.has_next_turn) {
                                 game.has_next_turn = game.head;
-
-                                announce_state(&game);
-                                announce_next_turn(&game, &(game.head));
-                            } else {
-                                inform_new(&game, &(game.head));
-                                announce_next_turn(&game, &(game.head));
                             }
+
+                            // tell the new player the current status of the game and one holds the turn
+                            inform_new(&game, &(game.head));
+                            announce_next_turn(&game, &(game.head));
                             
                             printf("It's %s's turn.\n", game.has_next_turn->name);
                             free(msg);
+                            free(name);
                         }
-                        free(name);
-                    } else {
+                    } else { // move prev to p if no p is moved from new_player list
                         prev = p;
                     }
                 }
