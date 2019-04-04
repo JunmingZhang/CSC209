@@ -41,8 +41,8 @@ void advance_turn(struct game_state *game);
 int name_check(char* name, struct client *player_list, int cur_fd);
 int find_network_line(char* buf, int length); // from lab 10
 char *read_msg(int fd, struct client **player); // from lab 10
-void announce_exit(char* name, struct game_state *game);
-void broadcasting(char* msg, struct client **game_head, struct game_state *game);
+void announce_exit(struct game_state *game, char* name);
+void broadcasting(char* msg, struct game_state *game);
 
 struct client** process_exit(struct game_state *game, struct client **curr, struct client** player_list, int from_new);
 void take_turn(struct game_state *game);
@@ -53,14 +53,14 @@ char *is_win(char* sol, char guess);
 int is_guessed(int* guessed, char guess);
 void announce_guessed(struct game_state *game, char guess);
 void announce_state(struct game_state *game);
-void announce_next_turn(struct game_state *game, struct client** player_list);
-void inform_new(struct game_state *game, struct client** player_list);
+void announce_next_turn(struct game_state *game);
+void inform_new(struct game_state *game);
 
 void reveal(struct game_state *game, char guess);
 void add_guesses_left(struct game_state *game, char guess);
-void announce_win(struct game_state *game, struct client **player_list);
-void announce_fail(struct game_state *game, struct client **player_list);
-void restart(struct game_state *game, struct client **player_list, char* dict_name);
+void announce_win(struct game_state *game);
+void announce_fail(struct game_state *game);
+void restart(struct game_state *game, char* dict_name);
 
 /* The set of socket descriptors for select to monitor.
  * This is a global variable because we need to remove socket descriptors
@@ -179,7 +179,7 @@ char *read_msg(int fd, struct client **player) {
 }
 
 /* announce to all players in the game that someone has exited */
-void announce_exit(char* name, struct game_state *game) {
+void announce_exit(struct game_state *game, char* name) {
     char* msg = malloc(sizeof(char) * MAX_BUF);
     if (!msg) {
         perror("malloc at announce_exit\n");
@@ -188,12 +188,13 @@ void announce_exit(char* name, struct game_state *game) {
 
     sprintf(msg, "\r\nGood bye %s\r\n", name);
 
-    broadcasting(msg, &(game->head), game);
+    broadcasting(msg, game);
     free(msg);
 }
 
 /* broadcast the given message to all players */
-void broadcasting(char* msg, struct client **game_head, struct game_state *game) {
+void broadcasting(char* msg, struct game_state *game) {
+    struct client **game_head = &(game->head);
     struct client **curr = game_head;
 
     while (*curr) {
@@ -280,8 +281,8 @@ struct client** process_exit(struct game_state *game, struct client **curr, stru
         printf("%s has left!\n", name);
         // if there is at least player in the game, announce next turn
         if (game->head) {
-            announce_exit(name, game);
-            announce_next_turn(game, &(game->head));
+            announce_exit(game, name);
+            announce_next_turn(game);
         }
     }
 
@@ -397,7 +398,6 @@ int is_guessed(int* guessed, char guess) {
 
 /* announce the guess result after taking a guess */
 void announce_guessed(struct game_state *game, char guess) {
-    struct client *head = game->head;
     struct client *turn = game->has_next_turn;
 
     char *msg = malloc(sizeof(char) * MAX_BUF);
@@ -408,14 +408,12 @@ void announce_guessed(struct game_state *game, char guess) {
 
     sprintf(msg, "\r\n%s guesses: %c\r\n", turn->name, guess);
 
-    broadcasting(msg, &head, game);
+    broadcasting(msg, game);
     free(msg);
 }
 
 /* announce the status message of this game to all players */
 void announce_state(struct game_state *game) {
-    struct client *head = game->head;
-
     char *update_msg = malloc(sizeof(char) * MAX_BUF);
     if (update_msg == NULL) {
         perror("malloc at announced_state");
@@ -424,12 +422,12 @@ void announce_state(struct game_state *game) {
 
     char *msg = status_message(update_msg, game);
     
-    broadcasting(msg, &head, game);
+    broadcasting(msg, game);
     free(msg);
 }
 
 /* announce the turn message to all players */
-void announce_next_turn(struct game_state *game, struct client** player_list) {
+void announce_next_turn(struct game_state *game) {
     struct client *head = game->head;
     struct client *turn = game->has_next_turn;
 
@@ -448,11 +446,11 @@ void announce_next_turn(struct game_state *game, struct client** player_list) {
     while (curr) {
         if (is_turn(turn, curr) == 0) {
             if (write(curr->fd, my_msg, strlen(my_msg)) == -1) {
-                curr = *(process_exit(game, &curr, player_list, 0));
+                curr = *(process_exit(game, &curr, &(game->head), 0));
             }
         } else {
             if (write(curr->fd, others_msg, strlen(others_msg)) == -1) {
-                curr = *(process_exit(game, &curr, player_list, 0));
+                curr = *(process_exit(game, &curr, &(game->head), 0));
             }
         }
         curr = curr->next;
@@ -460,7 +458,7 @@ void announce_next_turn(struct game_state *game, struct client** player_list) {
 }
 
 /* provide the message (status message) needed for a new player */
-void inform_new(struct game_state *game, struct client** player_list) {
+void inform_new(struct game_state *game) {
     struct client *new = game->head;
 
     char *update_msg = malloc(sizeof(char) * MAX_BUF);
@@ -471,7 +469,7 @@ void inform_new(struct game_state *game, struct client** player_list) {
 
     char *state_msg = status_message(update_msg, game);
     if (write(new->fd, state_msg, strlen(state_msg)) == -1) {
-       process_exit(game, &new, player_list, 0);
+       process_exit(game, &new, &(game->head), 0);
     }
     free(state_msg);
 }
@@ -500,7 +498,7 @@ void add_guesses_left(struct game_state *game, char guess) {
 }
 
 /* announce winning message of all the players in the game if they won */
-void announce_win(struct game_state *game, struct client **player_list) {
+void announce_win(struct game_state *game) {
     // winner_msg -> the message specially for the winner
     // others_msg -> announce all players someone won
     // all_msg -> announce the what the word is
@@ -510,9 +508,9 @@ void announce_win(struct game_state *game, struct client **player_list) {
 
     struct client *turn = game->has_next_turn;
 
-    sprintf(winner_msg, "\r\nGame over! You win!\r\n");
-    sprintf(others_msg, "\r\nGame over! %s won!\r\n", turn->name);
-    sprintf(all_msg, "The word was %s.\r\n", game->word);
+    sprintf(winner_msg, "Game over! You win!\r\n");
+    sprintf(others_msg, "Game over! %s won!\r\n", turn->name);
+    sprintf(all_msg, "\r\nThe word was %s.\r\n", game->word);
 
     printf("Game over! %s won!\n", turn->name);
     
@@ -522,16 +520,16 @@ void announce_win(struct game_state *game, struct client **player_list) {
     struct client* curr = game->head;
     while (curr) {
         if (write(curr->fd, all_msg, strlen(all_msg)) == -1) {
-            curr = *(process_exit(game, &curr, player_list, 0));
+            curr = *(process_exit(game, &curr, &(game->head), 0));
         }
 
         if (is_turn(turn, curr) == 0) {
             if (write(curr->fd, winner_msg, strlen(winner_msg)) == -1) {
-                curr = *(process_exit(game, &curr, player_list, 0));
+                curr = *(process_exit(game, &curr, &(game->head), 0));
             }
         } else {
             if (write(curr->fd, others_msg, strlen(others_msg)) == -1) {
-                curr = *(process_exit(game, &curr, player_list, 0));
+                curr = *(process_exit(game, &curr, &(game->head), 0));
             }
         }
         curr = curr->next;
@@ -539,21 +537,21 @@ void announce_win(struct game_state *game, struct client **player_list) {
 }
 
 /* announce failure message of all the players in the game if they lost */
-void announce_fail(struct game_state *game, struct client **player_list) {
+void announce_fail(struct game_state *game) {
     char* msg = malloc(sizeof(char) * MAX_BUF);
     if (msg == NULL) {
         perror("malloc at announce fail\n");
         exit(1);
     }
     sprintf(msg, "\r\nNo more guesses.  The word was %s\r\n", game->word);
-    broadcasting(msg, &(game->head), game);
+    broadcasting(msg, game);
     printf("Evaluating for game_over\n");
 
     free(msg);
 }
 
 /* restart the game if players win or lose and annouce the relative message */
-void restart(struct game_state *game, struct client **player_list, char* dict_name) {
+void restart(struct game_state *game, char* dict_name) {
     char* msg = malloc(sizeof(char) * MAX_BUF);
     if (msg == NULL) {
         perror("malloc at announce restart\n");
@@ -565,14 +563,14 @@ void restart(struct game_state *game, struct client **player_list, char* dict_na
     init_game(game, dict_name);
 
     sprintf(msg, "\r\nLet's start a new game.\r\n");
-    broadcasting(msg, &(game->head), game);
+    broadcasting(msg, game);
     free(msg);
 
     printf("New game\n");
     printf("It's %s's turn.\n", game->has_next_turn->name);
 
     announce_state(game);
-    announce_next_turn(game, player_list);
+    announce_next_turn(game);
 }
 
 int main(int argc, char **argv) {
@@ -726,8 +724,8 @@ int main(int argc, char **argv) {
                                         // if the the mask of every letter is revealed
                                         // announce them they win and restart the game
                                         if (strcmp(game.word, game.guess) == 0) {
-                                            announce_win(&game, &(game.head));
-                                            restart(&game, &(game.head), argv[1]);
+                                            announce_win(&game);
+                                            restart(&game, argv[1]);
                                             free(content);
                                             continue;
                                         }
@@ -752,8 +750,8 @@ int main(int argc, char **argv) {
                                         // if there is no more guess,
                                         // announce the failure message to all the user and start a new game
                                         if (game.guesses_left == 0) {
-                                            announce_fail(&game, &(game.head));
-                                            restart(&game, &(game.head), argv[1]);
+                                            announce_fail(&game);
+                                            restart(&game, argv[1]);
                                             free(content);
                                             continue;
                                         }
@@ -764,7 +762,7 @@ int main(int argc, char **argv) {
                                     // announce the relative message after a guessing
                                     announce_guessed(&game, *content);
                                     announce_state(&game);
-                                    announce_next_turn(&game, &(game.head));
+                                    announce_next_turn(&game);
                                 }
                             } else { // tell the user if he provides an invalid message
                                 printf("Stop %s from entering the invalid answer, %s\n.", game.has_next_turn->name, content);
@@ -854,7 +852,7 @@ int main(int argc, char **argv) {
 
                             printf("%s has just joined.\n", game.head->name);
                             sprintf(msg, "\r\n%s has just joined.\r\n", game.head->name);
-                            broadcasting(msg, &(game.head), &(game));
+                            broadcasting(msg, &(game));
 
                             // if there is no player at now, make the player at the head
                             // hold the turn
@@ -863,8 +861,8 @@ int main(int argc, char **argv) {
                             }
 
                             // tell the new player the current status of the game and one holds the turn
-                            inform_new(&game, &(game.head));
-                            announce_next_turn(&game, &(game.head));
+                            inform_new(&game);
+                            announce_next_turn(&game);
                             
                             printf("It's %s's turn.\n", game.has_next_turn->name);
                             free(msg);
